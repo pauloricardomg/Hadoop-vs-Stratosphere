@@ -6,14 +6,20 @@ import java.io.IOException;
 import java.util.LinkedList;
 import java.util.List;
 
+import org.apache.hadoop.conf.Configuration;
+import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.io.Text;
+import org.apache.hadoop.mapreduce.Job;
 import org.apache.hadoop.mapreduce.Mapper;
 import org.apache.hadoop.mapreduce.Reducer;
+import org.apache.hadoop.mapreduce.lib.input.FileInputFormat;
+import org.apache.hadoop.mapreduce.lib.output.FileOutputFormat;
+import org.apache.hadoop.util.GenericOptionsParser;
 
 
 public class KmeansHadoopMR {
 
-	public static final String CENTERS_FILENAME = "/home/paulo/blabla";
+	public static String CENTERS_FILENAME = null;
 	public static List<Point> centers = null;
 	
 	public static class NearestCenterMapper extends Mapper<Object, Text, Text, Text> {
@@ -30,13 +36,18 @@ public class KmeansHadoopMR {
 				}
 			}
 			
-			Point point = new Point(value.toString().split(" +"));
+			Point point;
+			try {
+				point = new Point(value.toString().split("\\s+"));
+			} catch (Exception e) {
+				throw new IOException(e);
+			}
 			
-			int minDist = Integer.MAX_VALUE;
+			long minDist = Long.MAX_VALUE;
 			Point closestCenter = null;
 			
 			for (Point center : centers) {
-				int dist = point.distanceTo(center);
+				long dist = point.distanceTo(center);
 				if(dist < minDist){
 					minDist = dist;
 					closestCenter = center;
@@ -48,34 +59,20 @@ public class KmeansHadoopMR {
 		
 	}
 	
-	public static class NearestCenterCombiner 
-	extends Reducer<Text,Text,Text,Text> {
-		private Point localCentroid = new Point(0,0);
-		public void reduce(Text key, Iterable<Text> points, Context context
-				) throws IOException, InterruptedException {
-			int x=0, y=0;
-			int length=0;
-			for (Text point : points) {
-				Point p = new Point(point.toString().split(" +"));
-				x += p.getX();
-				y += p.getY();
-				++length;
-			}
-			localCentroid.setX(x/length);
-			localCentroid.setY(y/length);
-			context.write(key, new Text(localCentroid.toString()));
-		}
-	}
-	
 	public static class NearestCenterReducer 
 	extends Reducer<Text,Text,Text,Text> {
 		private Point globalCentroid = new Point(0,0);
 		public void reduce(Text key, Iterable<Text> points, Context context
 				) throws IOException, InterruptedException {
-			int x=0, y=0;
-			int length=0;
+			long x=0, y=0;
+			long length=0;
 			for (Text point : points) {
-				Point p = new Point(point.toString().split(" +"));
+				Point p;
+				try {
+					p = new Point(point.toString().split("\\s+"));
+				} catch (Exception e) {
+					throw new IOException(e);
+				}
 				x += p.getX();
 				y += p.getY();
 				++length;
@@ -94,9 +91,29 @@ public class KmeansHadoopMR {
 		
 		String line;
 		while((line = pointReader.readLine()) != null){
-			centersList.add(new Point(line.split(" +")));
+			centersList.add(new Point(line.split("\\s+")));
 		}
 		
 		return centersList;
 	}
+	
+	  public static void main(String[] args) throws Exception {
+		    Configuration conf = new Configuration();
+		    String[] otherArgs = new GenericOptionsParser(conf, args).getRemainingArgs();
+		    if (otherArgs.length != 3) {
+		      System.err.println("Usage: " + KmeansHadoopMR.class.getName() + " <pointsFile> <centerFile> <output>");
+		      System.exit(2);
+		    }
+		    Job job = new Job(conf, "Kmeans Clustering Algorithm");
+		    job.setJarByClass(KmeansHadoopMR.class);
+		    job.setMapperClass(NearestCenterMapper.class);
+		    job.setCombinerClass(NearestCenterReducer.class);
+		    job.setReducerClass(NearestCenterReducer.class);
+		    job.setOutputKeyClass(Text.class);
+		    job.setOutputValueClass(Text.class);
+		    FileInputFormat.addInputPath(job, new Path(otherArgs[0]));
+		    CENTERS_FILENAME = otherArgs[1];
+		    FileOutputFormat.setOutputPath(job, new Path(otherArgs[2]));
+		    System.exit(job.waitForCompletion(true) ? 0 : 1);
+		  }
 }
