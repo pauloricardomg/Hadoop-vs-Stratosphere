@@ -48,7 +48,7 @@ public class KmeansHadoopMR {
 		
 	}
 	
-	public static class Combiner 
+	public static class NearestCenterCombiner 
 	extends Reducer<Text,Text,Text,Text> {
 		private Point localCentroid = new Point(0,0);
 		public void reduce(Text key, Iterable<Text> points, Context context
@@ -64,6 +64,25 @@ public class KmeansHadoopMR {
 			localCentroid.setX(x/length);
 			localCentroid.setY(y/length);
 			context.write(key, new Text(localCentroid.toString()));
+		}
+	}
+	
+	public static class NearestCenterReducer 
+	extends Reducer<Text,Text,Text,Text> {
+		private Point globalCentroid = new Point(0,0);
+		public void reduce(Text key, Iterable<Text> points, Context context
+				) throws IOException, InterruptedException {
+			int x=0, y=0;
+			int length=0;
+			for (Text point : points) {
+				Point p = new Point(point.toString().split(" +"));
+				x += p.getX();
+				y += p.getY();
+				++length;
+			}
+			globalCentroid.setX(x/length);
+			globalCentroid.setY(y/length);
+			context.write(key, new Text(globalCentroid.toString()));
 		}
 	}
 	
