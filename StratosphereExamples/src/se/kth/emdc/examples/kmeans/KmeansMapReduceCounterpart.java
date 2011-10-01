@@ -1,7 +1,10 @@
 package se.kth.emdc.examples.kmeans;
 
 import java.io.BufferedReader;
+import java.io.File;
 import java.io.FileReader;
+import java.io.FileWriter;
+import java.io.IOException;
 import java.util.Iterator;
 import java.util.LinkedList;
 import java.util.List;
@@ -27,6 +30,7 @@ import eu.stratosphere.pact.common.type.base.PactNull;
 public class KmeansMapReduceCounterpart implements PlanAssembler, PlanAssemblerDescription{
 	public static String CENTERS_FILENAME = null;
 	public static List<Point> centers = null;
+	public static FileWriter fw = null; 
 	
 	public static List<Point> getCenters() throws Exception{
 		
@@ -104,6 +108,12 @@ public class KmeansMapReduceCounterpart implements PlanAssembler, PlanAssemblerD
 			}
 			
 			Point point = new Point(value.toString().split(" +"));
+			try {
+				KmeansMapReduceCounterpart.fw.write(point.toString()+"\n");
+			} catch (IOException e) {
+				// TODO Auto-generated catch block
+				e.printStackTrace();
+			}
 			
 			int minDist = Integer.MAX_VALUE;
 			Point closestCenter = null;
@@ -138,20 +148,21 @@ public class KmeansMapReduceCounterpart implements PlanAssembler, PlanAssemblerD
 		@Override
 		public void reduce(PactString key, Iterator<PactString> values, Collector<PactString, PactString> out) {
 			
-				int x=0, y=0;
-				int length=0;
-				Point localCentroid = new Point(0,0);
-				while (values.hasNext()) {
-
+//				int x=0, y=0;
+//				int length=0;
+//				Point localCentroid = new Point(0,0);
+//				while (values.hasNext()) {
+//
 					Point p = new Point(values.next().toString().split(" +"));
-					x += p.getX();
-					y += p.getY();
-					++length;
-				}
-				localCentroid.setX(x/length);
-				localCentroid.setY(y/length);
+//					x += p.getX();
+//					y += p.getY();
+//					++length;
+//				}
+//				localCentroid.setX(x/length);
+//				localCentroid.setY(y/length);
 				
-				out.collect(key, new PactString(localCentroid.toString()));
+//				out.collect(key, new PactString(localCentroid.toString()));
+				out.collect(new PactString(p.toString()), new PactString(p.toString()));
 		}
 
 		/**
@@ -176,6 +187,13 @@ public class KmeansMapReduceCounterpart implements PlanAssembler, PlanAssemblerD
 		String dataInput = (args.length > 1 ? args[1] : "");
 		KmeansMapReduceCounterpart.CENTERS_FILENAME = (args.length > 2 ? args[2] : "");
 		String output    = (args.length > 3 ? args[3] : "");
+		
+		try {
+			KmeansMapReduceCounterpart.fw = new FileWriter(new File("errlog.txt"));
+		} catch (IOException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
 
 		FileDataSourceContract<PactNull, PactString> data = new FileDataSourceContract<PactNull, PactString>(
 				LineInFormat.class, dataInput, "Input Lines");
