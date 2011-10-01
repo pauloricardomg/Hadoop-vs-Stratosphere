@@ -38,8 +38,8 @@ public class Point {
 		this.y = y;
 	}
 	
-	public long distanceTo(Point otherPoint){
-		return (long)(Math.pow(this.x - otherPoint.x, 2) + Math.pow(this.y - otherPoint.y, 2));
+	public double sumOfSquares(Point otherPoint){
+		return (Math.pow(this.x - otherPoint.x, 2) + Math.pow(this.y - otherPoint.y, 2));
 	}
 
 	@Override

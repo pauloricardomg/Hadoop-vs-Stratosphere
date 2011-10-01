@@ -21,11 +21,11 @@ public class KmeansHadoopMR {
 
 	public static String CENTERS_FILENAME = null;
 	public static List<Point> centers = null;
-	
+
 	public static class NearestCenterMapper extends Mapper<Object, Text, Text, Text> {
-		
+
 		protected void map(Object key, Text value, Context context) throws IOException ,InterruptedException {
-			
+
 			if(centers == null){
 				try {
 					centers = getCenters();
@@ -35,37 +35,38 @@ public class KmeansHadoopMR {
 					centers = new LinkedList<Point>();
 				}
 			}
-			
+
 			Point point;
 			try {
 				point = new Point(value.toString().split("\\s+"));
 			} catch (Exception e) {
 				throw new IOException(e);
 			}
-			
-			long minDist = Long.MAX_VALUE;
+
+			double minDist = Double.MAX_VALUE;
 			Point closestCenter = null;
-			
+
 			for (Point center : centers) {
-				long dist = point.distanceTo(center);
+				double dist = point.sumOfSquares(center);
 				if(dist < minDist){
 					minDist = dist;
 					closestCenter = center;
 				}
 			}
-			
+
 			context.write(new Text(closestCenter.toString()), new Text(point.toString()));
 		};
-		
+
 	}
-	
-	public static class NearestCenterReducer 
-	extends Reducer<Text,Text,Text,Text> {
-		private Point globalCentroid = new Point(0,0);
-		public void reduce(Text key, Iterable<Text> points, Context context
-				) throws IOException, InterruptedException {
+
+	public static class NearestCenterReducer extends Reducer<Text,Text,Text,Text> {
+				
+		public void reduce(Text key, Iterable<Text> points, Context context) throws IOException, InterruptedException {
+			
+			Point globalCentroid = new Point(0,0);
 			long x=0, y=0;
 			long length=0;
+			
 			for (Text point : points) {
 				Point p;
 				try {
@@ -77,43 +78,50 @@ public class KmeansHadoopMR {
 				y += p.getY();
 				++length;
 			}
+			
 			globalCentroid.setX(x/length);
 			globalCentroid.setY(y/length);
+			
 			context.write(key, new Text(globalCentroid.toString()));
 		}
 	}
-	
+
 	public static List<Point> getCenters() throws Exception{
-		
+
 		BufferedReader pointReader = new BufferedReader(new FileReader(CENTERS_FILENAME));
-		
+
 		LinkedList<Point> centersList = new LinkedList<Point>();
-		
+
 		String line;
 		while((line = pointReader.readLine()) != null){
 			centersList.add(new Point(line.split("\\s+")));
 		}
-		
+
 		return centersList;
 	}
-	
-	  public static void main(String[] args) throws Exception {
-		    Configuration conf = new Configuration();
-		    String[] otherArgs = new GenericOptionsParser(conf, args).getRemainingArgs();
-		    if (otherArgs.length != 3) {
-		      System.err.println("Usage: " + KmeansHadoopMR.class.getName() + " <pointsFile> <centerFile> <output>");
-		      System.exit(2);
-		    }
-		    Job job = new Job(conf, "Kmeans Clustering Algorithm");
-		    job.setJarByClass(KmeansHadoopMR.class);
-		    job.setMapperClass(NearestCenterMapper.class);
-		    job.setCombinerClass(NearestCenterReducer.class);
-		    job.setReducerClass(NearestCenterReducer.class);
-		    job.setOutputKeyClass(Text.class);
-		    job.setOutputValueClass(Text.class);
-		    FileInputFormat.addInputPath(job, new Path(otherArgs[0]));
-		    CENTERS_FILENAME = otherArgs[1];
-		    FileOutputFormat.setOutputPath(job, new Path(otherArgs[2]));
-		    System.exit(job.waitForCompletion(true) ? 0 : 1);
-		  }
+
+	public static void main(String[] args) throws Exception {
+		
+		Configuration conf = new Configuration();
+		String[] otherArgs = new GenericOptionsParser(conf, args).getRemainingArgs();
+		
+		if (otherArgs.length != 3) {
+			System.err.println("Usage: " + KmeansHadoopMR.class.getName() + " <pointsFile> <centerFile> <output>");
+			System.exit(2);
+		}
+		
+		Job job = new Job(conf, "Kmeans Clustering Algorithm");
+		job.setJarByClass(KmeansHadoopMR.class);
+		job.setMapperClass(NearestCenterMapper.class);
+		job.setCombinerClass(NearestCenterReducer.class);
+		job.setReducerClass(NearestCenterReducer.class);
+		job.setOutputKeyClass(Text.class);
+		job.setOutputValueClass(Text.class);
+		
+		FileInputFormat.addInputPath(job, new Path(otherArgs[0]));
+		CENTERS_FILENAME = otherArgs[1];
+		
+		FileOutputFormat.setOutputPath(job, new Path(otherArgs[2]));
+		System.exit(job.waitForCompletion(true) ? 0 : 1);
+	}
 }
