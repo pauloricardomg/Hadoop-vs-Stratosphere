@@ -1,0 +1,4 @@
+2011-10-01 18:57:39,588 [Worker-0] INFO  o.e.m.c.i.l.LifecycleMappingFactory - Using NULL lifecycle mapping for MavenProject: eu.stratosphere:stratosphere:0.1.1 @ /home/xzh/EclipseWorkSpaces/Hadoop-vs-Stratosphere/StratosphereExamples/pom.xml.
+2011-10-01 18:57:40,114 [Worker-0] INFO  o.e.m.c.i.i.nexus.NexusIndexManager - Updating index for repository: central|http://repo1.maven.org/maven2
+2011-10-01 18:57:41,023 [Worker-1] INFO  o.e.m.c.i.l.LifecycleMappingFactory - Using NULL lifecycle mapping for MavenProject: eu.stratosphere:stratosphere:0.1.1 @ /home/xzh/EclipseWorkSpaces/Hadoop-vs-Stratosphere/StratosphereExamples/pom.xml.
+2011-10-01 18:57:55,479 [Worker-0] INFO  o.e.m.c.i.i.nexus.NexusIndexManager - Updated index for repository: central|http://repo1.maven.org/maven2 in 15365 ms
