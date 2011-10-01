@@ -5,6 +5,7 @@ import java.io.FileReader;
 import java.util.Iterator;
 import java.util.LinkedList;
 import java.util.List;
+import java.util.StringTokenizer;
 
 import eu.stratosphere.pact.common.contract.FileDataSinkContract;
 import eu.stratosphere.pact.common.contract.FileDataSourceContract;
@@ -21,8 +22,10 @@ import eu.stratosphere.pact.common.stub.Collector;
 import eu.stratosphere.pact.common.stub.MapStub;
 import eu.stratosphere.pact.common.stub.ReduceStub;
 import eu.stratosphere.pact.common.type.KeyValuePair;
+import eu.stratosphere.pact.common.type.base.PactInteger;
 import eu.stratosphere.pact.common.type.base.PactString;
 import eu.stratosphere.pact.common.type.base.PactNull;
+import eu.stratosphere.pact.common.type.base.PactString;
 
 public class KmeansMapReduceCounterpart implements PlanAssembler, PlanAssemblerDescription{
 	public static String CENTERS_FILENAME = null;
@@ -150,7 +153,6 @@ public class KmeansMapReduceCounterpart implements PlanAssembler, PlanAssemblerD
 				}
 				localCentroid.setX(x/length);
 				localCentroid.setY(y/length);
-				
 				out.collect(key, new PactString(localCentroid.toString()));
 		}
 

@@ -150,7 +150,7 @@ public class KmeansMapReduceCounterpart implements PlanAssembler, PlanAssemblerD
 				}
 				localCentroid.setX(x/length);
 				localCentroid.setY(y/length);
-				
+				System.out.println(localCentroid.toString());
 				out.collect(key, new PactString(localCentroid.toString()));
 		}
 
