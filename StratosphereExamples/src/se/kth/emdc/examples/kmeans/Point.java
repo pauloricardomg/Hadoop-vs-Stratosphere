@@ -10,9 +10,13 @@ public class Point {
 			this.x = new Integer(points[0]);
 			this.y = new Integer(points[1]);
 		}
-		
-		this.x = -1;
-		this.y = -1;
+		else
+		{
+			this.x = -1;
+			this.y = -1;
+			System.err.println("Bad Point Initialization!");
+		}
+
 	}
 	
 	public Point(int x, int y) {

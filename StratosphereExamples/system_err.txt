@@ -1,0 +1,4 @@
+java.lang.NullPointerException
+	at se.kth.emdc.examples.kmeans.KmeansMapReduceCounterpart.redirectSystemErr(KmeansMapReduceCounterpart.java:56)
+	at se.kth.emdc.examples.kmeans.KmeansMapReduceCounterpart$NearestCenterMapper.map1(KmeansMapReduceCounterpart.java:144)
+	at se.kth.emdc.examples.kmeans.KmeansMapReduceCounterpart.main(KmeansMapReduceCounterpart.java:267)
