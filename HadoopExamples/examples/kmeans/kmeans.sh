@@ -3,15 +3,15 @@
 ### Libs
 
 # Hadoop installation path
-HADOOP_DIR=/home/paulo/emdc/hadoop/hadoop-0.20.203.0
+HADOOP_DIR=/home/xzh/Programs/hadoop-0.21.0
 
 # Hadoop Examples project path
-PROJ_DIR=/home/paulo/workspace/HadoopVsStratosphere/HadoopExamples
+PROJ_DIR=/home/xzh/EclipseWorkSpaces/Hadoop-vs-Stratosphere/HadoopExamples
 
 ### K-means parameters
 
 # Points file (input)
-POINTS_FILE=/home/paulo/workspace/HadoopVsStratosphere/HadoopExamples/examples/kmeans/points.txt
+POINTS_FILE=$PROJ_DIR/examples/kmeans/points.txt
 
 # Centers file (output)
 FINAL_OUTPUT=centers.txt
@@ -65,8 +65,8 @@ while [ $? -eq 1 ]; do
 	sort -n -k 1 $TMP > $NEXT
 	rm -rf $TMP_OUTPUT $TMP
 
-	#echo "Next centers:"
-	#cat next.txt
+	echo "Next centers:"
+	cat next.txt
 
 	ITERATION=`expr $ITERATION + 1`
 

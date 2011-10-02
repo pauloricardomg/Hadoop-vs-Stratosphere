@@ -6,6 +6,7 @@ import java.io.FileReader;
 import java.io.PrintStream;
 import java.util.Iterator;
 import java.util.LinkedList;
+import java.util.Random;
 import java.io.FileOutputStream;
 import java.util.List;
 
@@ -28,7 +29,7 @@ import eu.stratosphere.pact.common.type.base.PactString;
 import eu.stratosphere.pact.common.type.base.PactNull;
 
 public class KmeansMapReduceCounterpart implements PlanAssembler, PlanAssemblerDescription{
-	public static String CENTERS_FILENAME = "/home/xzh/centers.txt";
+	public static String CENTERS_FILENAME = "/home/paulo/Downloads/centers.txt";
 	public static List<Point> centers = null;
 
 	public static List<Point> getCenters() throws Exception{
@@ -47,13 +48,13 @@ public class KmeansMapReduceCounterpart implements PlanAssembler, PlanAssemblerD
 	public static void redirectSystemErr() {
 
 		try {
-
-			System.setErr(new PrintStream(new FileOutputStream("system_err.txt")));
-
-			String nullString = null;
-
-			//Forcing an exception to have the stacktrace printed on System.err
-			nullString = nullString.toUpperCase();
+			return;
+//			System.setErr(new PrintStream(new FileOutputStream("system_err.txt")));
+//
+//			String nullString = null;
+//
+//			//Forcing an exception to have the stacktrace printed on System.err
+//			nullString = nullString.toUpperCase();
 
 		} catch (Exception ex) {
 			ex.printStackTrace();
@@ -125,11 +126,11 @@ public class KmeansMapReduceCounterpart implements PlanAssembler, PlanAssemblerD
 			Point point = new Point(value.toString().split("\\s+"));
 
 
-			int minDist = Integer.MAX_VALUE;
+			double minDist = Double.MAX_VALUE;
 			Point closestCenter = null;
 
 			for (Point center : centers) {
-				int dist = point.distanceTo(center);
+				double dist = point.sumOfSquares(center);
 				if(dist < minDist){
 					minDist = dist;
 					closestCenter = center;
@@ -156,11 +157,11 @@ public class KmeansMapReduceCounterpart implements PlanAssembler, PlanAssemblerD
 			Point point = new Point(value.toString().split("\\s+"));
 
 
-			int minDist = Integer.MAX_VALUE;
+			double minDist = Double.MAX_VALUE;
 			Point closestCenter = null;
 
 			for (Point center : centers) {
-				int dist = point.distanceTo(center);
+				double dist = point.sumOfSquares(center);
 				if(dist < minDist){
 					minDist = dist;
 					closestCenter = center;
@@ -189,12 +190,13 @@ public class KmeansMapReduceCounterpart implements PlanAssembler, PlanAssemblerD
 		@Override
 		public void reduce(PactString key, Iterator<PactString> values, Collector<PactString, PactString> out) {
 			redirectSystemErr();
-			int x=0, y=0;
-			int length=0;
+			long x=0, y=0;
+			long length=0;
 			Point localCentroid = new Point(0,0);
 			while (values.hasNext()) {
 
 				Point p = new Point(values.next().toString().split("\\s+"));
+				//Point p = new Point(0,0);
 				x += p.getX();
 				y += p.getY();
 				++length;
@@ -203,6 +205,23 @@ public class KmeansMapReduceCounterpart implements PlanAssembler, PlanAssemblerD
 			localCentroid.setY(y/length);
 
 			out.collect(key, new PactString(localCentroid.toString()));
+		}
+		
+		public void reduce1(PactString key, Iterator<PactString> values) {
+			redirectSystemErr();
+			long x=0, y=0;
+			long length=0;
+			Point localCentroid = new Point(0,0);
+			while (values.hasNext()) {
+
+				Point p = new Point(values.next().toString().split("\\s+"));
+				//Point p = new Point(0,0);
+				x += p.getX();
+				y += p.getY();
+				++length;
+			}
+			localCentroid.setX(x/length);
+			localCentroid.setY(y/length);
 		}
 
 		/**
