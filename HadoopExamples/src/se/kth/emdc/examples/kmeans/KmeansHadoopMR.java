@@ -19,20 +19,40 @@ import org.apache.hadoop.util.GenericOptionsParser;
 
 public class KmeansHadoopMR {
 
-	public static String CENTERS_FILENAME = null;
+	
 	public static List<Point> centers = null;
 
 	public static class NearestCenterMapper extends Mapper<Object, Text, Text, Text> {
+		public static String CENTERS_FILENAME = null;
+		
+		public static List<Point> getCenters() throws Exception{
 
+			BufferedReader pointReader = new BufferedReader(new FileReader(CENTERS_FILENAME));
+
+			LinkedList<Point> centersList = new LinkedList<Point>();
+
+			String line;
+			while((line = pointReader.readLine()) != null){
+				centersList.add(new Point(line.split("\\s+")));
+			}
+
+			return centersList;
+		}
+		
+		protected void setup(Mapper.Context context)
+		{
+			CENTERS_FILENAME  = context.getConfiguration().get("CENTERS_FILENAME");
+		}
+		
 		protected void map(Object key, Text value, Context context) throws IOException ,InterruptedException {
 
 			if(centers == null){
 				try {
 					centers = getCenters();
 				} catch (Exception e) {
-					System.err.println("Could not read centers file. Empty centers list.");
+					System.err.println("Could not read centers file.");
 					e.printStackTrace();
-					centers = new LinkedList<Point>();
+					return;
 				}
 			}
 
@@ -86,19 +106,7 @@ public class KmeansHadoopMR {
 		}
 	}
 
-	public static List<Point> getCenters() throws Exception{
-
-		BufferedReader pointReader = new BufferedReader(new FileReader(CENTERS_FILENAME));
-
-		LinkedList<Point> centersList = new LinkedList<Point>();
-
-		String line;
-		while((line = pointReader.readLine()) != null){
-			centersList.add(new Point(line.split("\\s+")));
-		}
-
-		return centersList;
-	}
+	
 
 	public static void main(String[] args) throws Exception {
 		
@@ -107,6 +115,9 @@ public class KmeansHadoopMR {
 		
 		if (otherArgs.length != 3) {
 			System.err.println("Usage: " + KmeansHadoopMR.class.getName() + " <pointsFile> <centerFile> <output>");
+			System.err.println("<pointsFile>: points file in HDFS");
+			System.err.println("<centerFile>: center file in the local file system");
+			System.err.println("<output>: output folder in HDFS, must be empty before running the job");
 			System.exit(2);
 		}
 		
@@ -119,7 +130,7 @@ public class KmeansHadoopMR {
 		job.setOutputValueClass(Text.class);
 		
 		FileInputFormat.addInputPath(job, new Path(otherArgs[0]));
-		CENTERS_FILENAME = otherArgs[1];
+		job.getConfiguration().set("CENTERS_FILENAME", otherArgs[1]);
 		
 		FileOutputFormat.setOutputPath(job, new Path(otherArgs[2]));
 		System.exit(job.waitForCompletion(true) ? 0 : 1);
