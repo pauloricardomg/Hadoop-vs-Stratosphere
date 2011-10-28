@@ -32,7 +32,7 @@ OUTPUT_PREFIX="part-*"
 # Create empty previous centers file
 touch $PREV
 # Create next centers file (first N points (sorted))
-shuf --random-source=$0 -n $NUM_CLUSTERS $POINTS_FILE | sort -n -k 1 $INITIAL_CENTERS > $NEXT
+shuf --random-source=$0 -n $NUM_CLUSTERS $POINTS_FILE | sort -n -k 1 > $NEXT
 
 TOTAL_TIME=0
 ITERATION=0
