@@ -13,7 +13,7 @@
  *
  **********************************************************************************************************************/
 
-package se.kth.emdc.examples.kmeans;
+package se.kth.emdc.examples.kmeans.stratosphere;
 
 import java.io.DataInput;
 import java.io.DataOutput;

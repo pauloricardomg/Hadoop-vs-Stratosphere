@@ -1,2 +1,0 @@
-Manifest-Version: 1.0
-Pact-Assembler-Class: se.kth.emdc.examples.kmeans.KmeansMapReduceCounterpart

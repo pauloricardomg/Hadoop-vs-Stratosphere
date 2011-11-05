@@ -1,4 +1,4 @@
-package se.kth.emdc.examples.kmeans;
+package se.kth.emdc.examples.kmeans.hadoop;
 
 import java.io.IOException;
 import java.util.StringTokenizer;

@@ -2,43 +2,41 @@
 
 ### Libs
 
-# Stratosphere installation path
-STRATOSPHERE_DIR=/home/xzh/Programs/stratosphere-0.1.1
+# Hadoop installation path
+HADOOP_DIR=/home/paulo/emdc/hadoop/hadoop-0.20.203.0/
 
 # Hadoop Examples project path
-PROJ_DIR=/home/xzh/EclipseWorkSpaces/Hadoop-vs-Stratosphere/StratosphereExamples
+PROJ_DIR=/home/paulo/workspace/HadoopVsStratosphere/
 
 ### K-means parameters
-#Jar file
-KMEANS_JAR=$PROJ_DIR/examples/kmeans/KmeansPact.jar
 
 # Points file (input)
-POINTS_FILE=$PROJ_DIR/examples/kmeans/points.txt
+POINTS_FILE=/home/paulo/workspace/HadoopVsStratosphere/HadoopExamples/examples/kmeans/points
 
 # Centers file (output)
-FINAL_OUTPUT=centers.txt
+FINAL_OUTPUT=final-output
 
 # Gnu plot output (optional)
 GRAPH_OUTPUT=result.plt
 
-NUM_CLUSTERS=4
+NUM_CLUSTERS=50
 
 ### Advanced config
 
 PREV=prev.txt
 NEXT=next.txt
 TMP=tmp.txt
-TMP_OUTPUT=/home/xzh/EclipseWorkSpaces/Hadoop-vs-Stratosphere/StratosphereExamples/examples/kmeans/output
-OUTPUT_PREFIX="*"
+TMP_OUTPUT=./output
+OUTPUT_PREFIX="part-*"
 
 # Create empty previous centers file
 touch $PREV
 # Create next centers file (first N points (sorted))
-shuf --random-source=$0 -n $NUM_CLUSTERS $POINTS_FILE | sort -n -k 1 $INITIAL_CENTERS > $NEXT
-cat $NEXT
+shuf --random-source=$0 -n $NUM_CLUSTERS $POINTS_FILE | sort -n -k 1 > $NEXT
 
 TOTAL_TIME=0
 ITERATION=0
+INITIAL_TIME=$SECONDS
 
 # Iterate while the previous centers are different from the next
 diff $PREV $NEXT >/dev/null
@@ -46,7 +44,7 @@ while [ $? -eq 1 ]; do
 	START=$SECONDS
 	
 	# Run 1 iteration of map reduce
-	$STRATOSPHERE_DIR/bin/pact-client.sh run -v -w -j $KMEANS_JAR -a 1 file://$POINTS_FILE file://$NEXT file://$TMP_OUTPUT     
+	$HADOOP_DIR/bin/hadoop -cp $HADOOP_DIR/lib/*:$HADOOP_DIR/*:$PROJ_DIR/HadoopExamples/bin/:$PROJ_DIR/Common/bin/ se.kth.emdc.examples.kmeans.hadoop.Kmeans $POINTS_FILE $NEXT $TMP_OUTPUT
 	
 	# Calculate elapsed time
 	ELAPSED=`expr $SECONDS - $START`
@@ -56,28 +54,29 @@ while [ $? -eq 1 ]; do
 	mv $NEXT $PREV
 
 	# Write next centers file (from multiple files to a single file)
-	for file in `ls output/$OUTPUT_PREFIX`
-	do
-		while read line
-		do
-			echo $line | awk '{print $3"\t"$4}' >> $TMP
-		done < $file
-	done
+	cat `ls output/$OUTPUT_PREFIX` > $TMP
+	#for file in `ls output/$OUTPUT_PREFIX`
+	#do
+	#	while read line
+	#	do
+	#		echo $line | awk '{print $3"\t"$4}' >> $TMP
+	#	done < $file
+	#done
 
 	# Sort next centers
 	sort -n -k 1 $TMP > $NEXT
-	#rm -rf $TMP_OUTPUT $TMP
-	rm -rf $TMP
-	mv $TMP_OUTPUT $TMP_OUTPUT"-"$ITERATION
+	rm -rf $TMP_OUTPUT $TMP
 
-	#echo "Next centers:"
-	#cat next.txt
+	echo "Next centers:"
+	cat next.txt
 
 	ITERATION=`expr $ITERATION + 1`
 
 	# Compares previous centers with next centers
 	diff $PREV $NEXT >/dev/null
 done
+
+GLOBAL_TIME=`expr $SECONDS - $INITIAL_TIME`
 
 # Removes previous centers and writes output
 rm -rf $PREV
@@ -90,4 +89,5 @@ echo "\"$FINAL_OUTPUT\" using 1:2 title \"Clusters\" " >> $GRAPH_OUTPUT
 gnuplot $GRAPH_OUTPUT -persist
 
 echo "Iterations: "$ITERATION
-echo "Stratosphere execution time: "$TOTAL_TIME"s"
+echo "Hadoop execution time: "$TOTAL_TIME"s"
+echo "Total execution time: "$GLOBAL_TIME"s"

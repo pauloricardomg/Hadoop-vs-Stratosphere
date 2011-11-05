@@ -1,20 +1,19 @@
-package se.kth.emdc.examples.kmeans;
+package se.kth.emdc.examples.kmeans.stratosphere;
 
 import java.io.BufferedReader;
-import java.io.FileNotFoundException;
 import java.io.FileReader;
-import java.io.PrintStream;
 import java.util.Iterator;
 import java.util.LinkedList;
-import java.util.Random;
-import java.io.FileOutputStream;
 import java.util.List;
 
+import se.kth.emdc.examples.kmeans.BasePoint;
+
+import eu.stratosphere.nephele.configuration.Configuration;
 import eu.stratosphere.pact.common.contract.FileDataSinkContract;
 import eu.stratosphere.pact.common.contract.FileDataSourceContract;
 import eu.stratosphere.pact.common.contract.MapContract;
-import eu.stratosphere.pact.common.contract.ReduceContract;
 import eu.stratosphere.pact.common.contract.OutputContract.SameKey;
+import eu.stratosphere.pact.common.contract.ReduceContract;
 import eu.stratosphere.pact.common.contract.ReduceContract.Combinable;
 import eu.stratosphere.pact.common.io.TextInputFormat;
 import eu.stratosphere.pact.common.io.TextOutputFormat;
@@ -25,41 +24,25 @@ import eu.stratosphere.pact.common.stub.Collector;
 import eu.stratosphere.pact.common.stub.MapStub;
 import eu.stratosphere.pact.common.stub.ReduceStub;
 import eu.stratosphere.pact.common.type.KeyValuePair;
-import eu.stratosphere.pact.common.type.base.PactString;
 import eu.stratosphere.pact.common.type.base.PactNull;
+import eu.stratosphere.pact.common.type.base.PactString;
 
-public class KmeansMapReduceCounterpart implements PlanAssembler, PlanAssemblerDescription{
-	public static String CENTERS_FILENAME = "/home/paulo/Downloads/centers.txt";
-	public static List<Point> centers = null;
+public class KmeansMR implements PlanAssembler, PlanAssemblerDescription{
+	public static String CENTERS_FILENAME_CONF = "CENTERS_FILENAME";
 
-	public static List<Point> getCenters() throws Exception{
+	public static List<BasePoint> getCenters(String centersFileName) throws Exception{
+		
+		BufferedReader pointReader = new BufferedReader(new FileReader(centersFileName));
 
-		BufferedReader pointReader = new BufferedReader(new FileReader(CENTERS_FILENAME));
-
-		LinkedList<Point> centersList = new LinkedList<Point>();
+		LinkedList<BasePoint> centersList = new LinkedList<BasePoint>();
 
 		String line;
 		while((line = pointReader.readLine()) != null){
-			centersList.add(new Point(line.split("\\s+")));
+			centersList.add(new BasePoint(line.split("\\s+")));
 		}		
 		return centersList;
 	}
 
-	public static void redirectSystemErr() {
-
-		try {
-			return;
-//			System.setErr(new PrintStream(new FileOutputStream("system_err.txt")));
-//
-//			String nullString = null;
-//
-//			//Forcing an exception to have the stacktrace printed on System.err
-//			nullString = nullString.toUpperCase();
-
-		} catch (Exception ex) {
-			ex.printStackTrace();
-		}
-	}
 	/**
 	 * Converts a input string (a line) into a KeyValuePair with the string
 	 * being the key and the value being a zero Integer.
@@ -106,31 +89,44 @@ public class KmeansMapReduceCounterpart implements PlanAssembler, PlanAssemblerD
 	 * an Integer(1) is the value.
 	 */
 	public static class NearestCenterMapper extends MapStub<PactNull, PactString, PactString, PactString> {
+		
+		String centersFilePath = "";
+		private List<BasePoint> centers = null;
+		
+		@Override
+		public void configure(Configuration parameters) {
+			this.centersFilePath = parameters.getString(CENTERS_FILENAME_CONF, null);
+		}
+		
 		/**
 		 * {@inheritDoc}
 		 */
-		@Override
 		public void map(PactNull key, PactString value, Collector<PactString, PactString> out) {
-			redirectSystemErr();
 			if(centers == null){
 				try {
-					centers = getCenters();
+					centers = getCenters(centersFilePath);
 				} catch (Exception e) {
 					System.err.println("Could not read centers file. Empty centers list.");
 					e.printStackTrace();
-					centers = new LinkedList<Point>();
+					centers = new LinkedList<BasePoint>();
 				}
 			}
 
 
-			Point point = new Point(value.toString().split("\\s+"));
+			BasePoint point = null;
+			try {
+				point = new BasePoint(value.toString().split("\\s+"));
+			} catch (Exception e) {
+				// TODO Auto-generated catch block
+				e.printStackTrace();
+			}
 
 
 			double minDist = Double.MAX_VALUE;
-			Point closestCenter = null;
+			BasePoint closestCenter = null;
 
-			for (Point center : centers) {
-				double dist = point.sumOfSquares(center);
+			for (BasePoint center : centers) {
+				double dist = point.euclidianDistanceTo(center);
 				if(dist < minDist){
 					minDist = dist;
 					closestCenter = center;
@@ -140,38 +136,6 @@ public class KmeansMapReduceCounterpart implements PlanAssembler, PlanAssemblerD
 			out.collect(new PactString(closestCenter.toString()), new PactString(point.toString()));
 
 		}
-		
-		public void map1(PactNull key, PactString value) {
-			redirectSystemErr();
-			if(centers == null){
-				try {
-					centers = getCenters();
-				} catch (Exception e) {
-					System.err.println("Could not read centers file. Empty centers list.");
-					e.printStackTrace();
-					centers = new LinkedList<Point>();
-				}
-			}
-
-
-			Point point = new Point(value.toString().split("\\s+"));
-
-
-			double minDist = Double.MAX_VALUE;
-			Point closestCenter = null;
-
-			for (Point center : centers) {
-				double dist = point.sumOfSquares(center);
-				if(dist < minDist){
-					minDist = dist;
-					closestCenter = center;
-				}
-			}
-			
-			//out.collect(new PactString(closestCenter.toString()), new PactString(point.toString()));
-
-		}
-
 	}
 
 	/**
@@ -189,39 +153,31 @@ public class KmeansMapReduceCounterpart implements PlanAssembler, PlanAssemblerD
 		 */
 		@Override
 		public void reduce(PactString key, Iterator<PactString> values, Collector<PactString, PactString> out) {
-			redirectSystemErr();
 			long x=0, y=0;
 			long length=0;
-			Point localCentroid = new Point(0,0);
+
 			while (values.hasNext()) {
 
-				Point p = new Point(values.next().toString().split("\\s+"));
-				//Point p = new Point(0,0);
-				x += p.getX();
-				y += p.getY();
+				BasePoint p = null;
+				try {
+					p = new BasePoint(values.next().toString().split("\\s+"));
+				} catch (Exception e) {
+					// TODO Auto-generated catch block
+					e.printStackTrace();
+				}
+
+				x += p.getCoords()[0];
+				y += p.getCoords()[1];
 				++length;
 			}
-			localCentroid.setX(x/length);
-			localCentroid.setY(y/length);
+			
+			Long[] centroidCoords = new Long[2];
+			centroidCoords[0] = x/length;
+			centroidCoords[1] = y/length;
+			
+			BasePoint localCentroid = new BasePoint(centroidCoords);
 
 			out.collect(key, new PactString(localCentroid.toString()));
-		}
-		
-		public void reduce1(PactString key, Iterator<PactString> values) {
-			redirectSystemErr();
-			long x=0, y=0;
-			long length=0;
-			Point localCentroid = new Point(0,0);
-			while (values.hasNext()) {
-
-				Point p = new Point(values.next().toString().split("\\s+"));
-				//Point p = new Point(0,0);
-				x += p.getX();
-				y += p.getY();
-				++length;
-			}
-			localCentroid.setX(x/length);
-			localCentroid.setY(y/length);
 		}
 
 		/**
@@ -244,7 +200,7 @@ public class KmeansMapReduceCounterpart implements PlanAssembler, PlanAssemblerD
 		// parse job parameters
 		int noSubTasks   = (args.length > 0 ? Integer.parseInt(args[0]) : 1);
 		String dataInput = (args.length > 1 ? args[1] : "");
-		KmeansMapReduceCounterpart.CENTERS_FILENAME = (args.length > 2 ? args[2] : "");
+		String centersFileName = (args.length > 2 ? args[2] : "");
 		String output    = (args.length > 3 ? args[3] : "");
 
 
@@ -255,6 +211,7 @@ public class KmeansMapReduceCounterpart implements PlanAssembler, PlanAssemblerD
 		MapContract<PactNull, PactString, PactString, PactString> mapper = new MapContract<PactNull, PactString, PactString, PactString>(
 				NearestCenterMapper.class, "Find nearest center for each point");
 		mapper.setDegreeOfParallelism(noSubTasks);
+		mapper.setParameter(CENTERS_FILENAME_CONF, centersFileName);
 
 		ReduceContract<PactString, PactString, PactString, PactString> reducer = new ReduceContract<PactString, PactString, PactString, PactString>(
 				KmeansReducer.class, "Compute the new centers");
@@ -262,6 +219,7 @@ public class KmeansMapReduceCounterpart implements PlanAssembler, PlanAssemblerD
 
 		FileDataSinkContract<PactString, PactString> out = new FileDataSinkContract<PactString, PactString>(
 				KmeansOutFormat.class, output, "Centers");
+
 		out.setDegreeOfParallelism(noSubTasks);
 
 		out.setInput(reducer);
@@ -276,14 +234,6 @@ public class KmeansMapReduceCounterpart implements PlanAssembler, PlanAssemblerD
 	 */
 	@Override
 	public String getDescription() {
-		return "Parameters: [noSubStasks] [input] [output]";
+		return "Parameters: [noSubStasks] [input] [localLocalFile] [output]";
 	}
-	
-	public static void main(String[] args)
-	{
-		KmeansMapReduceCounterpart.CENTERS_FILENAME = "/home/xzh/centers.txt";
-		NearestCenterMapper mapper = new NearestCenterMapper();
-		mapper.map1(new PactNull(), new PactString("102 204"));
-	}
-
 }

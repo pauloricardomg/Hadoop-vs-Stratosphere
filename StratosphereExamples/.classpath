@@ -5,5 +5,6 @@
 	<classpathentry kind="lib" path="lib/commons-logging-1.1.1.jar"/>
 	<classpathentry kind="lib" path="lib/nephele-common-0.1.1.jar"/>
 	<classpathentry kind="lib" path="lib/pact-common-0.1.1.jar"/>
+	<classpathentry combineaccessrules="false" kind="src" path="/Common"/>
 	<classpathentry kind="output" path="bin"/>
 </classpath>
