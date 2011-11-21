@@ -1,196 +1,125 @@
 package se.kth.emdc.examples.kmeans.stratosphere;
 
-import java.io.BufferedReader;
-import java.io.FileReader;
 import java.util.Iterator;
 import java.util.LinkedList;
 import java.util.List;
 
 import se.kth.emdc.examples.kmeans.BasePoint;
-
 import eu.stratosphere.nephele.configuration.Configuration;
 import eu.stratosphere.pact.common.contract.FileDataSinkContract;
 import eu.stratosphere.pact.common.contract.FileDataSourceContract;
 import eu.stratosphere.pact.common.contract.MapContract;
-import eu.stratosphere.pact.common.contract.OutputContract.SameKey;
 import eu.stratosphere.pact.common.contract.ReduceContract;
 import eu.stratosphere.pact.common.contract.ReduceContract.Combinable;
-import eu.stratosphere.pact.common.io.TextInputFormat;
-import eu.stratosphere.pact.common.io.TextOutputFormat;
 import eu.stratosphere.pact.common.plan.Plan;
 import eu.stratosphere.pact.common.plan.PlanAssembler;
 import eu.stratosphere.pact.common.plan.PlanAssemblerDescription;
 import eu.stratosphere.pact.common.stub.Collector;
 import eu.stratosphere.pact.common.stub.MapStub;
 import eu.stratosphere.pact.common.stub.ReduceStub;
-import eu.stratosphere.pact.common.type.KeyValuePair;
+import eu.stratosphere.pact.common.type.base.PactInteger;
 import eu.stratosphere.pact.common.type.base.PactNull;
-import eu.stratosphere.pact.common.type.base.PactString;
 
 public class KmeansMR implements PlanAssembler, PlanAssemblerDescription{
 	public static String CENTERS_FILENAME_CONF = "CENTERS_FILENAME";
 
-	public static List<BasePoint> getCenters(String centersFileName) throws Exception{
+	public static class NearestCenterMapper extends MapStub<PactNull, CoordinatesSum, PactInteger, CoordinatesSum> {
 		
-		BufferedReader pointReader = new BufferedReader(new FileReader(centersFileName));
-
-		LinkedList<BasePoint> centersList = new LinkedList<BasePoint>();
-
-		String line;
-		while((line = pointReader.readLine()) != null){
-			centersList.add(new BasePoint(line.split("\\s+")));
-		}		
-		return centersList;
-	}
-
-	/**
-	 * Converts a input string (a line) into a KeyValuePair with the string
-	 * being the key and the value being a zero Integer.
-	 */
-	public static class LineInFormat extends TextInputFormat<PactNull, PactString> {
-
-		/**
-		 * {@inheritDoc}
-		 */
-		@Override
-		public boolean readLine(KeyValuePair<PactNull, PactString> pair, byte[] line) {
-			pair.setKey(new PactNull());
-			pair.setValue(new PactString(new String(line)));
-			return true;
-		}
-
-	}
-
-	/**
-	 * Writes a (String,Integer)-KeyValuePair to a string. The output format is:
-	 * "&lt;key&gt;&nbsp;&lt;value&gt;\nl"
-	 */
-	public static class KmeansOutFormat extends TextOutputFormat<PactString, PactString> {
-
-		/**
-		 * {@inheritDoc}
-		 */
-
-		@Override
-		public byte[] writeLine(KeyValuePair<PactString, PactString> pair) {
-			// TODO Auto-generated method stub
-			String key = pair.getKey().toString();
-			String value = pair.getValue().toString();
-			String line = key + " " + value + "\n";
-			return line.getBytes();
-		}
-
-	}
-
-	/**
-	 * Converts a (String,Integer)-KeyValuePair into multiple KeyValuePairs. The
-	 * key string is tokenized by spaces. For each token a new
-	 * (String,Integer)-KeyValuePair is emitted where the Token is the key and
-	 * an Integer(1) is the value.
-	 */
-	public static class NearestCenterMapper extends MapStub<PactNull, PactString, PactString, PactString> {
-		
-		String centersFilePath = "";
 		private List<BasePoint> centers = null;
 		
 		@Override
 		public void configure(Configuration parameters) {
-			this.centersFilePath = parameters.getString(CENTERS_FILENAME_CONF, null);
-		}
-		
-		/**
-		 * {@inheritDoc}
-		 */
-		public void map(PactNull key, PactString value, Collector<PactString, PactString> out) {
-			if(centers == null){
-				try {
-					centers = getCenters(centersFilePath);
-				} catch (Exception e) {
-					System.err.println("Could not read centers file. Empty centers list.");
-					e.printStackTrace();
-					centers = new LinkedList<BasePoint>();
-				}
-			}
+			String centersFilePath = parameters.getString(CENTERS_FILENAME_CONF, null);
 
-
-			BasePoint point = null;
 			try {
-				point = new BasePoint(value.toString().split("\\s+"));
+				centers = BasePoint.getPoints(centersFilePath);
 			} catch (Exception e) {
-				// TODO Auto-generated catch block
+				System.err.println("Could not read centers file. Empty centers list.");
 				e.printStackTrace();
+				centers = new LinkedList<BasePoint>();
 			}
+		}
 
-
+		@Override
+		public void map(PactNull key, CoordinatesSum onePoint, Collector<PactInteger, CoordinatesSum> out) {
 			double minDist = Double.MAX_VALUE;
-			BasePoint closestCenter = null;
+			Integer closestCenterId = -1;
 
-			for (BasePoint center : centers) {
-				double dist = point.euclidianDistanceTo(center);
+			for (int i = 0; i < centers.size(); i++) {
+				BasePoint center = centers.get(i);
+				double dist = onePoint.euclidianDistanceTo(center);
 				if(dist < minDist){
 					minDist = dist;
-					closestCenter = center;
+					closestCenterId = i;
 				}
 			}
-			
-			out.collect(new PactString(closestCenter.toString()), new PactString(point.toString()));
 
+			out.collect(new PactInteger(closestCenterId), onePoint);
 		}
 	}
 
-	/**
-	 * Counts the number of values for a given key. Hence, the number of
-	 * occurences of a given token (word) is computed and emitted. The key is
-	 * not modified, hence a SameKey OutputContract is attached to this class.
-	 */
-	@SameKey
+
 	@Combinable
-	public static class KmeansReducer extends ReduceStub<PactString, PactString, PactString, PactString> {
+	public static class RecomputeClusterCenter extends ReduceStub<PactInteger, CoordinatesSum, PactNull, PactPoint> {
 
-
-		/**
-		 * {@inheritDoc}
-		 */
 		@Override
-		public void reduce(PactString key, Iterator<PactString> values, Collector<PactString, PactString> out) {
-			long x=0, y=0;
+		public void combine(PactInteger key, Iterator<CoordinatesSum> points, Collector<PactInteger, CoordinatesSum> out) {
+
+			Long[] coordSums = null;
 			long length=0;
-
-			while (values.hasNext()) {
-
-				BasePoint p = null;
-				try {
-					p = new BasePoint(values.next().toString().split("\\s+"));
-				} catch (Exception e) {
-					// TODO Auto-generated catch block
-					e.printStackTrace();
+			
+			while(points.hasNext()){
+				CoordinatesSum onePoint = points.next();
+				Long[] pointCoords = onePoint.getCoords();
+				if(coordSums == null){
+					coordSums = new Long[pointCoords.length];
+					for (int i=0; i<pointCoords.length; i++) {
+						coordSums[i] = pointCoords[i];
+					}
+				} else {
+					for (int i = 0; i < coordSums.length; i++) {
+						coordSums[i] += pointCoords[i];
+					}					
 				}
-
-				x += p.getCoords()[0];
-				y += p.getCoords()[1];
-				++length;
+				length += onePoint.getCount();
 			}
 			
-			Long[] centroidCoords = new Long[2];
-			centroidCoords[0] = x/length;
-			centroidCoords[1] = y/length;
-			
-			BasePoint localCentroid = new BasePoint(centroidCoords);
-
-			out.collect(key, new PactString(localCentroid.toString()));
+			out.collect(key, new CoordinatesSum(coordSums, length));
 		}
 
-		/**
-		 * {@inheritDoc}
-		 */
 		@Override
-		public void combine(PactString key, Iterator<PactString> values, Collector<PactString, PactString> out) {
-
-			this.reduce(key, values, out);
+		public void reduce(PactInteger key, Iterator<CoordinatesSum> points, Collector<PactNull, PactPoint> out) {
+			Long[] coordSums = null;
+			long length=0;
+			
+			while(points.hasNext()){
+				CoordinatesSum onePoint = points.next();
+				Long[] pointCoords = onePoint.getCoords();
+				if(coordSums == null){
+					coordSums = new Long[pointCoords.length];
+					for (int i=0; i<pointCoords.length; i++) {
+						coordSums[i] = pointCoords[i];
+					}
+				} else {
+					for (int i = 0; i < coordSums.length; i++) {
+						coordSums[i] += pointCoords[i];
+					}					
+				}
+				length += onePoint.getCount();
+			}
+			
+			Long[] centCoords = new Long[coordSums.length];
+			for (int i = 0; i < centCoords.length; i++) {
+				centCoords[i] = coordSums[i]/length;
+			}
+			
+			PactPoint globalCentroid = new PactPoint(centCoords);
+			
+			out.collect(new PactNull(), globalCentroid);
 		}
 
 	}
-
+	
 	/**
 	 * {@inheritDoc}
 	 */
@@ -203,22 +132,21 @@ public class KmeansMR implements PlanAssembler, PlanAssemblerDescription{
 		String centersFileName = (args.length > 2 ? args[2] : "");
 		String output    = (args.length > 3 ? args[3] : "");
 
-
-		FileDataSourceContract<PactNull, PactString> data = new FileDataSourceContract<PactNull, PactString>(
-				LineInFormat.class, dataInput, "Input Lines");
+		FileDataSourceContract<PactNull, CoordinatesSum> data = new FileDataSourceContract<PactNull, CoordinatesSum>(
+				CoordinatesSum.LineInFormat.class, dataInput, "Input Lines");
 		data.setDegreeOfParallelism(noSubTasks);
 
-		MapContract<PactNull, PactString, PactString, PactString> mapper = new MapContract<PactNull, PactString, PactString, PactString>(
+		MapContract<PactNull, CoordinatesSum, PactInteger, CoordinatesSum> mapper = new MapContract<PactNull, CoordinatesSum, PactInteger, CoordinatesSum>(
 				NearestCenterMapper.class, "Find nearest center for each point");
 		mapper.setDegreeOfParallelism(noSubTasks);
 		mapper.setParameter(CENTERS_FILENAME_CONF, centersFileName);
 
-		ReduceContract<PactString, PactString, PactString, PactString> reducer = new ReduceContract<PactString, PactString, PactString, PactString>(
-				KmeansReducer.class, "Compute the new centers");
+		ReduceContract<PactInteger, CoordinatesSum, PactNull, PactPoint> reducer = new ReduceContract<PactInteger, CoordinatesSum, PactNull, PactPoint>(
+				RecomputeClusterCenter.class, "Compute the new centers");
 		reducer.setDegreeOfParallelism(noSubTasks);
 
-		FileDataSinkContract<PactString, PactString> out = new FileDataSinkContract<PactString, PactString>(
-				KmeansOutFormat.class, output, "Centers");
+		FileDataSinkContract<PactNull, PactPoint> out = new FileDataSinkContract<PactNull, PactPoint>(
+				PactPoint.LineOutFormat.class, output, "Centers");
 
 		out.setDegreeOfParallelism(noSubTasks);
 

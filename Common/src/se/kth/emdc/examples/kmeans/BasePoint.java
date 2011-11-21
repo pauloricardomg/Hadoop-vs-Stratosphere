@@ -8,26 +8,6 @@ import java.util.List;
 
 public class BasePoint {
 
-	/**
-	 * Retrieves points from a local file system
-	 * @param pointsFileName
-	 * @return the list of points
-	 * @throws Exception if there is a problem while reading the file
-	 */
-	public static List<BasePoint> getPoints(String pointsFileName) throws Exception{
-
-		BufferedReader pointReader = new BufferedReader(new FileReader(pointsFileName));
-
-		LinkedList<BasePoint> pointsList = new LinkedList<BasePoint>();
-
-		String line;
-		while((line = pointReader.readLine()) != null){
-			pointsList.add(new BasePoint(line.split("\\s+")));
-		}
-
-		return pointsList;
-	}
-	
 	protected Long coords[];
 	
 	public BasePoint(){
@@ -42,12 +22,8 @@ public class BasePoint {
 		}
 	}
 	
-	public BasePoint(Long... coords){
-		this.coords = new Long[coords.length];
-		
-		for (int i = 0; i < coords.length; i++) {
-			this.coords[i] = coords[i];
-		}
+	public BasePoint(Long[] coords){
+		this.coords = coords;
 	}
 	
 	public double euclidianDistanceTo(BasePoint otherPoint){
@@ -101,6 +77,24 @@ public class BasePoint {
 		}
 		return buf.toString().trim();
 	}
+	
+	/**
+	 * Retrieves points from a local file system
+	 * @param pointsFileName
+	 * @return the list of points
+	 * @throws Exception if there is a problem while reading the file
+	 */
+	public static List<BasePoint> getPoints(String pointsFileName) throws Exception{
+
+		BufferedReader pointReader = new BufferedReader(new FileReader(pointsFileName));
+
+		LinkedList<BasePoint> pointsList = new LinkedList<BasePoint>();
+
+		String line;
+		while((line = pointReader.readLine()) != null){
+			pointsList.add(new BasePoint(line.split("\\s+")));
+		}
+
+		return pointsList;
+	}
 }
-
-

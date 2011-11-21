@@ -24,24 +24,19 @@ import eu.stratosphere.pact.common.contract.CrossContract;
 import eu.stratosphere.pact.common.contract.FileDataSinkContract;
 import eu.stratosphere.pact.common.contract.FileDataSourceContract;
 import eu.stratosphere.pact.common.contract.OutputContract;
-import eu.stratosphere.pact.common.contract.OutputContract.SameKey;
 import eu.stratosphere.pact.common.contract.OutputContract.UniqueKey;
 import eu.stratosphere.pact.common.contract.ReduceContract;
 import eu.stratosphere.pact.common.contract.ReduceContract.Combinable;
-import eu.stratosphere.pact.common.io.TextInputFormat;
-import eu.stratosphere.pact.common.io.TextOutputFormat;
 import eu.stratosphere.pact.common.plan.Plan;
 import eu.stratosphere.pact.common.plan.PlanAssembler;
 import eu.stratosphere.pact.common.plan.PlanAssemblerDescription;
 import eu.stratosphere.pact.common.stub.Collector;
 import eu.stratosphere.pact.common.stub.CrossStub;
 import eu.stratosphere.pact.common.stub.ReduceStub;
-import eu.stratosphere.pact.common.type.Key;
-import eu.stratosphere.pact.common.type.KeyValuePair;
 import eu.stratosphere.pact.common.type.Value;
 import eu.stratosphere.pact.common.type.base.PactDouble;
 import eu.stratosphere.pact.common.type.base.PactInteger;
-import eu.stratosphere.pact.common.type.base.PactPair;
+import eu.stratosphere.pact.common.type.base.PactNull;
 
 /**
  * The K-Means cluster algorithm is well-known (see
@@ -59,160 +54,9 @@ import eu.stratosphere.pact.common.type.base.PactPair;
  */
 public class KmeansPACT implements PlanAssembler, PlanAssemblerDescription {
 
-	/**
-	 * Implements a coordinate vector of multi-dimensional point. Coordinates
-	 * are stored as long values.
-	 * 
-	 * @author Fabian Hueske
-	 */
-	public static class CoordVector implements Key, Value {
-
-		// coordinate array
-		private long[] coordinates;
-
-		/**
-		 * Initializes a blank coordinate vector. Required for deserialization!
-		 */
-		public CoordVector() {
-			coordinates = null;
-		}
-
-		/**
-		 * Initializes a coordinate vector.
-		 * 
-		 * @param coordinates
-		 *        The coordinate vector of a multi-dimensional point.
-		 */
-		public CoordVector(Long[] coordinates) {
-			this.coordinates = new long[coordinates.length];
-			for (int i = 0; i < coordinates.length; i++) {
-				this.coordinates[i] = coordinates[i];
-			}
-		}
-
-		/**
-		 * Initializes a coordinate vector.
-		 * 
-		 * @param coordinates
-		 *        The coordinate vector of a multi-dimensional point.
-		 */
-		public CoordVector(long[] coordinates) {
-			this.coordinates = coordinates;
-		}
-
-		/**
-		 * Returns the coordinate vector of a multi-dimensional point.
-		 * 
-		 * @return The coordinate vector of a multi-dimensional point.
-		 */
-		public long[] getCoordinates() {
-			return this.coordinates;
-		}
-
-		/**
-		 * Computes the Euclidian distance between this coordinate vector and a
-		 * second coordinate vector.
-		 * 
-		 * @param cv
-		 *        The coordinate vector to which the distance is computed.
-		 * @return The Euclidian distance to coordinate vector cv. If cv has a
-		 *         different length than this coordinate vector, -1 is returned.
-		 */
-		public double computeEuclidianDistance(CoordVector cv) {
-
-			// check coordinate vector lengths
-			if (cv.coordinates.length != this.coordinates.length) {
-				return -1.0;
-			}
-
-			double quadSum = 0.0;
-			for (int i = 0; i < this.coordinates.length; i++) {
-				quadSum += Math.pow((this.coordinates[i] - cv.coordinates[i]), 2);
-			}
-			return Math.sqrt(quadSum);
-		}
-
-		/**
-		 * {@inheritDoc}
-		 */
-		@Override
-		public void read(DataInput in) throws IOException {
-			int length = in.readInt();
-			this.coordinates = new long[length];
-			for (int i = 0; i < length; i++) {
-				this.coordinates[i] = in.readLong();
-			}
-		}
-
-		/**
-		 * {@inheritDoc}
-		 */
-		@Override
-		public void write(DataOutput out) throws IOException {
-			out.writeInt(this.coordinates.length);
-			for (int i = 0; i < this.coordinates.length; i++) {
-				out.writeLong(this.coordinates[i]);
-			}
-		}
-
-		/**
-		 * Compares this coordinate vector to another key.
-		 * 
-		 * @return -1 if the other key is not of type CoordVector. If the other
-		 *         key is also a CoordVector but its length differs from this
-		 *         coordinates vector, -1 is return if this coordinate vector is
-		 *         smaller and 1 if it is larger. If both coordinate vectors
-		 *         have the same length, the coordinates of both are compared.
-		 *         If a coordinate of this coordinate vector is smaller than the
-		 *         corresponding coordinate of the other vector -1 is returned
-		 *         and 1 otherwise. If all coordinates are identical 0 is
-		 *         returned.
-		 */
-		@Override
-		public int compareTo(Key o) {
-
-			// check if other key is also of type CoordVector
-			if (!(o instanceof CoordVector)) {
-				return -1;
-			}
-			// cast to CoordVector
-			CoordVector oP = (CoordVector) o;
-
-			// check if both coordinate vectors have identical lengths
-			if (oP.coordinates.length > this.coordinates.length) {
-				return -1;
-			} else if (oP.coordinates.length < this.coordinates.length) {
-				return 1;
-			}
-
-			// compare all coordinates
-			for (int i = 0; i < this.coordinates.length; i++) {
-				if (oP.coordinates[i] > this.coordinates[i]) {
-					return -1;
-				} else if (oP.coordinates[i] < this.coordinates[i]) {
-					return 1;
-				}
-			}
-			return 0;
-		}
-
-	}
-
-	/**
-	 * This data type holds the distance from a data point to a cluster center.
-	 * Hence, three pieces of information are stored: the coordinate vector of
-	 * the data point, the id of the cluster center, and the (Euclidian)
-	 * distance between both. The coordinate vector of the data point is later
-	 * required to compute the new position of the cluster center.
-	 * 
-	 * @author Fabian Hueske
-	 */
 	public static class Distance implements Value {
 
-		CoordVector dataPoint;
-
-		PactInteger clusterId;
-
+		PactPoint clusterCenter;
 		PactDouble distance;
 
 		/**
@@ -224,16 +68,15 @@ public class KmeansPACT implements PlanAssembler, PlanAssemblerDescription {
 		/**
 		 * Initialized the distance from a data point to a cluster center.
 		 * 
-		 * @param dataPoint
+		 * @param clusterCenter
 		 *        The coordinate vector of the data point.
 		 * @param clusterId
 		 *        The id of the cluster center.
 		 * @param distance
 		 *        The distance from the data point to the cluster center.
 		 */
-		public Distance(CoordVector dataPoint, PactInteger clusterId, PactDouble distance) {
-			this.dataPoint = dataPoint;
-			this.clusterId = clusterId;
+		public Distance(PactPoint clusterCenter, PactDouble distance) {
+			this.clusterCenter = clusterCenter;
 			this.distance = distance;
 		}
 
@@ -242,17 +85,8 @@ public class KmeansPACT implements PlanAssembler, PlanAssemblerDescription {
 		 * 
 		 * @return The coordinate vector of the data point.
 		 */
-		public CoordVector getDataPoint() {
-			return dataPoint;
-		}
-
-		/**
-		 * Returns the id of the cluster center.
-		 * 
-		 * @return The id of the cluster center.
-		 */
-		public PactInteger getClusterId() {
-			return clusterId;
+		public PactPoint getClusterCenter() {
+			return clusterCenter;
 		}
 
 		/**
@@ -269,10 +103,8 @@ public class KmeansPACT implements PlanAssembler, PlanAssemblerDescription {
 		 */
 		@Override
 		public void read(DataInput in) throws IOException {
-			dataPoint = new CoordVector();
-			dataPoint.read(in);
-			clusterId = new PactInteger();
-			clusterId.read(in);
+			clusterCenter = new PactPoint();
+			clusterCenter.read(in);
 			distance = new PactDouble();
 			distance.read(in);
 		}
@@ -282,95 +114,8 @@ public class KmeansPACT implements PlanAssembler, PlanAssemblerDescription {
 		 */
 		@Override
 		public void write(DataOutput out) throws IOException {
-			dataPoint.write(out);
-			clusterId.write(out);
+			clusterCenter.write(out);
 			distance.write(out);
-		}
-
-	}
-
-	/**
-	 * Holds a count and a coordinate vector. This type is required for the
-	 * Combiner of the second Reduce PACT and hold pre-aggregated average value
-	 * of the new coordinate vector (position) of a cluster center. This class
-	 * extends N_Pair.
-	 * 
-	 * @author Fabian Hueske
-	 */
-	public static class CoordVectorCountSum extends PactPair<PactInteger, CoordVector> {
-
-		/**
-		 * Initializes a blank CoordVectorCountSum. Required for
-		 * deserialization.
-		 */
-		public CoordVectorCountSum() {
-			super();
-		}
-
-		/**
-		 * Initializes a CoordVectorCountSum.
-		 * 
-		 * @param count
-		 *        The count value of the pre-aggregated average value.
-		 * @param pointSum
-		 *        The sum value of the pre-aggregated average value.
-		 */
-		public CoordVectorCountSum(PactInteger count, CoordVector pointSum) {
-			super(count, pointSum);
-		}
-	}
-
-	/**
-	 * Reads key-value pairs with N_Integer as key type and CoordVector as value
-	 * type. The input format is line-based, i.e. one pair is written to a line
-	 * and terminated with '\n'. Within a line the first '|' character separates
-	 * the key from the value. The value consists of a vector of decimals. The
-	 * decimals are separated by '|'. The key is the id of a data point or
-	 * cluster center and the value the corresponding position (coordinate
-	 * vector) of the data point or cluster center. Example line:
-	 * "42|23.23|52.57|74.43| Id: 42 Coordinate vector: (23.23, 52.57, 74.43)
-	 * 
-	 * @author Fabian Hueske
-	 */
-	public static class PointInFormat extends TextInputFormat<PactInteger, CoordVector> {
-
-		// TODO: Decide whether to use performance reader or easy-to-understand
-		// reader
-		@Override
-		public boolean readLine(KeyValuePair<PactInteger, CoordVector> pair, byte[] line) {
-
-			String input = new String(line);
-			String[] coords = input.split("\\s+");
-			
-			Integer key = new Integer(coords[0]);
-			
-			Long[] longCoords = new Long[coords.length-1];
-			for (int i = 1; i < coords.length; i++) {
-				longCoords[i-1] = new Long(coords[i]);
-			}
-			
-			pair.setKey(new PactInteger(key));
-			pair.setValue(new CoordVector(longCoords));
-			return true;
-		}
-	}
-
-
-	public static class PointOutFormat extends TextOutputFormat<PactInteger, CoordVector> {
-
-		@Override
-		public byte[] writeLine(KeyValuePair<PactInteger, CoordVector> pair) {
-			StringBuilder line = new StringBuilder();
-
-			line.append(pair.getKey().getValue());
-
-			for (long coord : pair.getValue().getCoordinates()) {
-				line.append('\t');
-				line.append(coord);
-			}
-			line.append('\n');
-
-			return line.toString().getBytes();
 		}
 
 	}
@@ -384,7 +129,7 @@ public class KmeansPACT implements PlanAssembler, PlanAssemblerDescription {
 	 */
 	@OutputContract.SameKeyFirst
 	public static class ComputeDistance extends
-			CrossStub<PactInteger, CoordVector, PactInteger, CoordVector, PactInteger, Distance> {
+			CrossStub<PactPoint, PactNull, PactPoint, PactNull, PactPoint, Distance> {
 
 		/**
 		 * Computes the distance of one data point to one cluster center and
@@ -392,15 +137,13 @@ public class KmeansPACT implements PlanAssembler, PlanAssemblerDescription {
 		 * a Distance object is the value.
 		 */
 		@Override
-		public void cross(PactInteger pid, CoordVector dataPoint, PactInteger cid, CoordVector clusterPoint,
-				Collector<PactInteger, Distance> out) {
+		public void cross(PactPoint dataPoint, PactNull nullValue, PactPoint center, PactNull nullVal2, Collector<PactPoint, Distance> out) {
 
 			// compute Euclidian distance and create Distance object
-			Distance distance = new Distance(dataPoint, cid, new PactDouble(dataPoint
-					.computeEuclidianDistance(clusterPoint)));
+			Distance distance = new Distance(center, new PactDouble(dataPoint.euclidianDistanceTo(center)));
 
 			// emit key-value-pair with distance information
-			out.collect(pid, distance);
+			out.collect(dataPoint, distance);
 		}
 	}
 
@@ -411,7 +154,7 @@ public class KmeansPACT implements PlanAssembler, PlanAssemblerDescription {
 	 * @author Fabian Hueske
 	 */
 	@Combinable
-	public static class FindNearestCenter extends ReduceStub<PactInteger, Distance, PactInteger, CoordVectorCountSum> {
+	public static class FindNearestCenter extends ReduceStub<PactPoint, Distance, PactInteger, CoordinatesSum> {
 
 		/**
 		 * Computes a minimum aggregation on the distance of a data point to
@@ -421,8 +164,7 @@ public class KmeansPACT implements PlanAssembler, PlanAssemblerDescription {
 		 * the use of a Combiner for the second Reduce PACT.
 		 */
 		@Override
-		public void reduce(PactInteger pid, Iterator<Distance> distancesList,
-				Collector<PactInteger, CoordVectorCountSum> out) {
+		public void reduce(PactPoint dataPoint, Iterator<Distance> distancesList, Collector<PactInteger, CoordinatesSum> out) {
 
 			// initialize nearest cluster with the first distance
 			Distance nearestCluster = null;
@@ -448,8 +190,7 @@ public class KmeansPACT implements PlanAssembler, PlanAssemblerDescription {
 			// the coordinate vector of the data point is the value. The
 			// CoordVectorCountSum data type is used to enable the use of a
 			// Combiner for the second Reduce PACT.
-			out.collect(nearestCluster.getClusterId(), new CoordVectorCountSum(new PactInteger(1), nearestCluster
-					.getDataPoint()));
+			out.collect(new PactInteger(nearestCluster.getClusterCenter().hashCode()), new CoordinatesSum(dataPoint.getCoords()));
 		}
 
 		/**
@@ -457,7 +198,7 @@ public class KmeansPACT implements PlanAssembler, PlanAssemblerDescription {
 		 * cluster centers.
 		 */
 		@Override
-		public void combine(PactInteger pid, Iterator<Distance> distancesList, Collector<PactInteger, Distance> out) {
+		public void combine(PactPoint dataPoint, Iterator<Distance> distancesList, Collector<PactPoint, Distance> out) {
 
 			// initialize nearest cluster with the first distance
 			Distance nearestCluster = null;
@@ -480,122 +221,7 @@ public class KmeansPACT implements PlanAssembler, PlanAssemblerDescription {
 			}
 
 			// emit nearest cluster
-			out.collect(pid, nearestCluster);
-		}
-	}
-
-	/**
-	 * Reduce PACT computes the new position (coordinate vector) of a cluster
-	 * center. This is an average computation. Hence, Combinable is annotated
-	 * and the combine method implemented. SameKey is annotated because the
-	 * PACT's output key is identical to its input key.
-	 * 
-	 * @author Fabian Hueske
-	 */
-	@SameKey
-	@Combinable
-	public static class RecomputeClusterCenter extends
-			ReduceStub<PactInteger, CoordVectorCountSum, PactInteger, CoordVector> {
-
-		/**
-		 * Compute the new position (coordinate vector) of a cluster center.
-		 */
-		@Override
-		public void reduce(PactInteger cid, Iterator<CoordVectorCountSum> dataPoints,
-				Collector<PactInteger, CoordVector> out) {
-
-			CoordVectorCountSum pcs;
-
-			// initialize coordinate vector sum and count
-			long[] coordinateSum = null;
-			long count = 0;
-			if (dataPoints.hasNext()) {
-				pcs = dataPoints.next();
-				coordinateSum = pcs.getSecond().getCoordinates();
-				count = pcs.getFirst().getValue();
-			}
-
-			// compute coordiante vector sum and count
-			while (dataPoints.hasNext()) {
-
-				// get next data point and count
-				pcs = dataPoints.next();
-
-				coordinateSum = addToCoordVector(coordinateSum, pcs.getSecond().getCoordinates());
-				count += pcs.getFirst().getValue();
-			}
-
-			// compute new coordinate vector (position) of cluster center
-			for (int i = 0; i < coordinateSum.length; i++) {
-				coordinateSum[i] /= count;
-			}
-			CoordVector newClusterPoint = new CoordVector(coordinateSum);
-
-			// emit new position of cluster center
-			out.collect(cid, newClusterPoint);
-
-		}
-
-		/**
-		 * Computes a pre-aggregated average value of a coordinate vector.
-		 */
-		@Override
-		public void combine(PactInteger cid, Iterator<CoordVectorCountSum> dataPoints,
-				Collector<PactInteger, CoordVectorCountSum> out) {
-
-			CoordVectorCountSum pcs;
-
-			// initialize coordinate vector sum and count
-			long[] coordinateSum = null;
-			int count = 0;
-			if (dataPoints.hasNext()) {
-				pcs = dataPoints.next();
-				coordinateSum = pcs.getSecond().getCoordinates();
-				count = pcs.getFirst().getValue();
-			}
-
-			// compute coordiante vector sum and count
-			while (dataPoints.hasNext()) {
-
-				// get next data point and count
-				pcs = dataPoints.next();
-
-				coordinateSum = addToCoordVector(coordinateSum, pcs.getSecond().getCoordinates());
-				count += pcs.getFirst().getValue();
-			}
-
-			// emit partial sum and partial count for average computation
-			out.collect(cid, new CoordVectorCountSum(new PactInteger(count), new CoordVector(coordinateSum)));
-
-		}
-
-		/**
-		 * Sums two coordiante vectors by summing up each of their coordinates.
-		 * 
-		 * @param cvToAddTo
-		 *        The coordinate vector to which the other vector is added.
-		 *        This vector is returned.
-		 * @param cvToBeAdded
-		 *        The coordinate vector which is added to the other vector.
-		 *        This vector is not modified.
-		 * @return Null if the coordinate vectors differ in their lengths.
-		 *         Otherwise, the coordinate vector to which the other vector
-		 *         was added.
-		 */
-		private long[] addToCoordVector(long[] cvToAddTo, long[] cvToBeAdded) {
-
-			// check if both vectors have same length
-			if (cvToAddTo.length != cvToBeAdded.length) {
-				return null;
-			}
-
-			// sum coordinate vectors coordinate-wise
-			for (int i = 0; i < cvToAddTo.length; i++) {
-				cvToAddTo[i] += cvToBeAdded[i];
-			}
-
-			// return the coordiante vector to which was added.
-			return cvToAddTo;
+			out.collect(dataPoint, nearestCluster);
 		}
 	}
 
@@ -612,40 +238,40 @@ public class KmeansPACT implements PlanAssembler, PlanAssemblerDescription {
 		String output = (args.length > 3 ? args[3] : "");
 
 		// create DataSourceContract for data point input
-		FileDataSourceContract<PactInteger, CoordVector> dataPoints = new FileDataSourceContract<PactInteger, CoordVector>(
-				PointInFormat.class, dataPointInput, "Data Points");
-		dataPoints.setParameter(PointInFormat.RECORD_DELIMITER, "\n");
+		FileDataSourceContract<PactPoint, PactNull> dataPoints = new FileDataSourceContract<PactPoint, PactNull> (
+				PactPoint.LineInFormat.class, dataPointInput, "Data Points");
+		dataPoints.setParameter(PactPoint.LineInFormat.RECORD_DELIMITER, "\n");
 		dataPoints.setDegreeOfParallelism(noSubTasks);
-		dataPoints.setOutputContract(UniqueKey.class);
+		//dataPoints.setOutputContract(UniqueKey.class);
 
 		// create DataSourceContract for cluster center input
-		FileDataSourceContract<PactInteger, CoordVector> clusterPoints = new FileDataSourceContract<PactInteger, CoordVector>(
-				PointInFormat.class, clusterInput, "Centers");
-		clusterPoints.setParameter(PointInFormat.RECORD_DELIMITER, "\n");
+		FileDataSourceContract<PactPoint, PactNull> clusterPoints = new FileDataSourceContract<PactPoint, PactNull> (
+				PactPoint.LineInFormat.class, clusterInput, "Centers");
+		clusterPoints.setParameter(PactPoint.LineInFormat.RECORD_DELIMITER, "\n");
 		clusterPoints.setDegreeOfParallelism(1);
-		clusterPoints.setOutputContract(UniqueKey.class);
+		//clusterPoints.setOutputContract(UniqueKey.class);
 
 		// create CrossContract for distance computation
-		CrossContract<PactInteger, CoordVector, PactInteger, CoordVector, PactInteger, Distance> computeDistance = new CrossContract<PactInteger, CoordVector, PactInteger, CoordVector, PactInteger, Distance>(
+		CrossContract<PactPoint, PactNull, PactPoint, PactNull, PactPoint, Distance> computeDistance = new CrossContract<PactPoint, PactNull, PactPoint, PactNull, PactPoint, Distance>(
 				ComputeDistance.class, "Compute Distances");
 		computeDistance.setDegreeOfParallelism(noSubTasks);
-		computeDistance.getCompilerHints().setAvgBytesPerRecord(48);
+		//?computeDistance.getCompilerHints().setAvgBytesPerRecord(48);
 
 		// create ReduceContract for finding the nearest cluster centers
-		ReduceContract<PactInteger, Distance, PactInteger, CoordVectorCountSum> findNearestClusterCenters = new ReduceContract<PactInteger, Distance, PactInteger, CoordVectorCountSum>(
+		ReduceContract<PactPoint, Distance, PactInteger, CoordinatesSum> findNearestClusterCenters = new ReduceContract<PactPoint, Distance, PactInteger, CoordinatesSum>(
 				FindNearestCenter.class, "Find Nearest Centers");
 		findNearestClusterCenters.setDegreeOfParallelism(noSubTasks);
-		findNearestClusterCenters.getCompilerHints().setAvgBytesPerRecord(48);
+		//findNearestClusterCenters.getCompilerHints().setAvgBytesPerRecord(48);
 
 		// create ReduceContract for computing new cluster positions
-		ReduceContract<PactInteger, CoordVectorCountSum, PactInteger, CoordVector> recomputeClusterCenter = new ReduceContract<PactInteger, CoordVectorCountSum, PactInteger, CoordVector>(
-				RecomputeClusterCenter.class, "Recompute Center Positions");
+		ReduceContract<PactInteger, CoordinatesSum, PactNull, PactPoint> recomputeClusterCenter = new ReduceContract<PactInteger, CoordinatesSum, PactNull, PactPoint>(
+				KmeansMR.RecomputeClusterCenter.class, "Recompute Center Positions");
 		recomputeClusterCenter.setDegreeOfParallelism(noSubTasks);
-		recomputeClusterCenter.getCompilerHints().setAvgBytesPerRecord(36);
+		//recomputeClusterCenter.getCompilerHints().setAvgBytesPerRecord(36);
 
 		// create DataSinkContract for writing the new cluster positions
-		FileDataSinkContract<PactInteger, CoordVector> newClusterPoints = new FileDataSinkContract<PactInteger, CoordVector>(
-				PointOutFormat.class, output, "New Centers");
+		FileDataSinkContract<PactNull, PactPoint> newClusterPoints = new FileDataSinkContract<PactNull, PactPoint>(
+				PactPoint.LineOutFormat.class, output, "New Centers");
 		newClusterPoints.setDegreeOfParallelism(noSubTasks);
 
 		// assemble the PACT plan
