@@ -25,10 +25,10 @@ NUM_CLUSTERS=4
 
 ### Advanced config
 
-PREV=prev.txt
-NEXT=next.txt
-TMP=tmp.txt
-TMP_OUTPUT=./output
+PREV=/home/paulo/workspace/HadoopVsStratosphere/ExternalScripts/kmeans/prev.txt
+NEXT=/home/paulo/workspace/HadoopVsStratosphere/ExternalScripts/kmeans/next.txt
+TMP=/home/paulo/workspace/HadoopVsStratosphere/ExternalScripts/kmeans/tmp.txt
+TMP_OUTPUT=/home/paulo/workspace/HadoopVsStratosphere/ExternalScripts/kmeans/output
 OUTPUT_PREFIX="*"
 
 # Create empty previous centers file
@@ -45,7 +45,7 @@ while [ $? -eq 1 ]; do
 	START=$SECONDS
 	
 	# Run 1 iteration of map reduce
-	$STRATOSPHERE_DIR/bin/pact-client.sh run -w -j $JAR_DIR -a 4 file://$POINTS_FILE file://`pwd`"/"$NEXT file://`pwd`"/"$TMP_OUTPUT
+	$STRATOSPHERE_DIR/bin/pact-client.sh run -w -j $JAR_DIR -a 4 file://$POINTS_FILE file://`pwd`"/"$NEXT file://$TMP_OUTPUT
 	
 	# Calculate elapsed time
 	ELAPSED=`expr $SECONDS - $START`

@@ -3,17 +3,14 @@
 ### Libs
 
 # Stratosphere installation path
-STRATOSPHERE_DIR=/home/xzh/Programs/stratosphere-0.1.1
-
-# Hadoop Examples project path
-PROJ_DIR=/home/xzh/EclipseWorkSpaces/Hadoop-vs-Stratosphere/StratosphereExamples
+STRATOSPHERE_DIR=/home/paulo/emdc/stratosphere/stratosphere-0.1.1/
 
 ### K-means parameters
 #Jar file
-KMEANS_JAR=$PROJ_DIR/examples/kmeans/KmeansPact.jar
+KMEANS_JAR=/home/paulo/Desktop/StratKmeansMR.jar
 
 # Points file (input)
-POINTS_FILE=$PROJ_DIR/examples/kmeans/points.txt
+POINTS_FILE=/home/paulo/workspace/HadoopVsStratosphere/ExternalScripts/kmeans/points
 
 # Centers file (output)
 FINAL_OUTPUT=centers.txt
@@ -21,21 +18,21 @@ FINAL_OUTPUT=centers.txt
 # Gnu plot output (optional)
 GRAPH_OUTPUT=result.plt
 
-NUM_CLUSTERS=4
+NUM_CLUSTERS=50
 
 ### Advanced config
 
-PREV=prev.txt
-NEXT=next.txt
-TMP=tmp.txt
-TMP_OUTPUT=/home/xzh/EclipseWorkSpaces/Hadoop-vs-Stratosphere/StratosphereExamples/examples/kmeans/output
+PREV=/home/paulo/workspace/HadoopVsStratosphere/ExternalScripts/kmeans/prev.txt
+NEXT=/home/paulo/workspace/HadoopVsStratosphere/ExternalScripts/kmeans/next.txt
+TMP=/home/paulo/workspace/HadoopVsStratosphere/ExternalScripts/kmeans/tmp.txt
+TMP_OUTPUT=/home/paulo/workspace/HadoopVsStratosphere/ExternalScripts/kmeans/output
 OUTPUT_PREFIX="*"
 
 # Create empty previous centers file
 touch $PREV
 # Create next centers file (first N points (sorted))
 shuf --random-source=$0 -n $NUM_CLUSTERS $POINTS_FILE | sort -n -k 1 $INITIAL_CENTERS > $NEXT
-cat $NEXT
+#cat $NEXT
 
 TOTAL_TIME=0
 ITERATION=0
@@ -46,7 +43,7 @@ while [ $? -eq 1 ]; do
 	START=$SECONDS
 	
 	# Run 1 iteration of map reduce
-	$STRATOSPHERE_DIR/bin/pact-client.sh run -v -w -j $KMEANS_JAR -a 1 file://$POINTS_FILE file://$NEXT file://$TMP_OUTPUT     
+	$STRATOSPHERE_DIR/bin/pact-client.sh run -v -w -j $KMEANS_JAR -a 1 file://$POINTS_FILE $NEXT file://$TMP_OUTPUT     
 	
 	# Calculate elapsed time
 	ELAPSED=`expr $SECONDS - $START`
@@ -55,23 +52,25 @@ while [ $? -eq 1 ]; do
 	# Next centers become previous centers
 	mv $NEXT $PREV
 
+	cat $TMP_OUTPUT > $TMP
+
 	# Write next centers file (from multiple files to a single file)
-	for file in `ls output/$OUTPUT_PREFIX`
-	do
-		while read line
-		do
-			echo $line | awk '{print $3"\t"$4}' >> $TMP
-		done < $file
-	done
+	#for file in `ls output/$OUTPUT_PREFIX`
+	#do
+	#	while read line
+	#	do
+	#		echo $line | awk '{print $3"\t"$4}' >> $TMP
+	#	done < $file
+	#done
 
 	# Sort next centers
 	sort -n -k 1 $TMP > $NEXT
-	#rm -rf $TMP_OUTPUT $TMP
-	rm -rf $TMP
-	mv $TMP_OUTPUT $TMP_OUTPUT"-"$ITERATION
+	rm -rf $TMP_OUTPUT $TMP
+	#rm -rf $TMP
+	#mv $TMP_OUTPUT $TMP_OUTPUT"-"$ITERATION
 
-	#echo "Next centers:"
-	#cat next.txt
+	echo "Next centers:"
+	cat $NEXT
 
 	ITERATION=`expr $ITERATION + 1`
 
