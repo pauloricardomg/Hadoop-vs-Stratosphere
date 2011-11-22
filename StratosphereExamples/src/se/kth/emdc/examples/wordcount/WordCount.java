@@ -152,25 +152,41 @@ public class WordCount implements PlanAssembler, PlanAssemblerDescription {
 	public Plan getPlan(String... args) {
 
 		// parse job parameters
-		int noSubTasks   = (args.length > 0 ? Integer.parseInt(args[0]) : 1);
-		String dataInput = (args.length > 1 ? args[1] : "");
-		String output    = (args.length > 2 ? args[2] : "");
+		
+		String dataInput = args[0];
+		String output    = args[1];
+		int MapSubTasks   = 0;
+		int ReduceSubTasks   = 0;
+		int InSubTasks   = 0;
+		int OutSubTasks   = 0;
 
 		FileDataSourceContract<PactNull, PactString> data = new FileDataSourceContract<PactNull, PactString>(
-				LineInFormat.class, dataInput, "Input Lines");
-		data.setDegreeOfParallelism(noSubTasks);
+				LineInFormat.class, dataInput, "SplittingInputToMappers");
+		
 
 		MapContract<PactNull, PactString, PactString, PactInteger> mapper = new MapContract<PactNull, PactString, PactString, PactInteger>(
-				TokenizeLine.class, "Tokenize Lines");
-		mapper.setDegreeOfParallelism(noSubTasks);
+				TokenizeLine.class, "MapperExtractingWords");
+		
 
 		ReduceContract<PactString, PactInteger, PactString, PactInteger> reducer = new ReduceContract<PactString, PactInteger, PactString, PactInteger>(
-				CountWords.class, "Count Words");
-		reducer.setDegreeOfParallelism(noSubTasks);
+				CountWords.class, "ReducerCountingWords");
+		
 
 		FileDataSinkContract<PactString, PactInteger> out = new FileDataSinkContract<PactString, PactInteger>(
-				WordCountOutFormat.class, output, "Word Counts");
-		out.setDegreeOfParallelism(noSubTasks);
+				WordCountOutFormat.class, output, "OutputToDisk");
+		
+		
+		if(args.length > 2)
+		{
+			MapSubTasks   = Integer.parseInt(args[2]);
+			ReduceSubTasks   = Integer.parseInt(args[3]);
+			InSubTasks   = Integer.parseInt(args[4]);
+			OutSubTasks   = Integer.parseInt(args[5]);
+			data.setDegreeOfParallelism(InSubTasks);
+			mapper.setDegreeOfParallelism(MapSubTasks);
+			reducer.setDegreeOfParallelism(ReduceSubTasks);
+			out.setDegreeOfParallelism(OutSubTasks);
+		}
 
 		out.setInput(reducer);
 		reducer.setInput(mapper);
@@ -184,7 +200,7 @@ public class WordCount implements PlanAssembler, PlanAssemblerDescription {
 	 */
 	@Override
 	public String getDescription() {
-		return "Parameters: [noSubStasks] [input] [output]";
+		return "Parameters: [input] [output]";
 	}
 
 }

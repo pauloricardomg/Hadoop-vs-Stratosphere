@@ -127,28 +127,38 @@ public class KmeansMR implements PlanAssembler, PlanAssemblerDescription{
 	public Plan getPlan(String... args) {
 
 		// parse job parameters
-		int noSubTasks   = (args.length > 0 ? Integer.parseInt(args[0]) : 1);
-		String dataInput = (args.length > 1 ? args[1] : "");
-		String centersFileName = (args.length > 2 ? args[2] : "");
-		String output    = (args.length > 3 ? args[3] : "");
+		String dataInput = (args.length > 0 ? args[0] : "");
+		String centersFileName = (args.length > 1 ? args[1] : "");
+		String output    = (args.length > 2 ? args[2] : "");
+		int MapSubTasks   = 0;
+		int ReduceSubTasks   = 0;
+		int InSubTasks   = 0;
+		int OutSubTasks   = 0;
 
 		FileDataSourceContract<PactNull, CoordinatesSum> data = new FileDataSourceContract<PactNull, CoordinatesSum>(
 				CoordinatesSum.LineInFormat.class, dataInput, "Input Lines");
-		data.setDegreeOfParallelism(noSubTasks);
 
 		MapContract<PactNull, CoordinatesSum, PactInteger, CoordinatesSum> mapper = new MapContract<PactNull, CoordinatesSum, PactInteger, CoordinatesSum>(
 				NearestCenterMapper.class, "Find nearest center for each point");
-		mapper.setDegreeOfParallelism(noSubTasks);
 		mapper.setParameter(CENTERS_FILENAME_CONF, centersFileName);
 
 		ReduceContract<PactInteger, CoordinatesSum, PactNull, PactPoint> reducer = new ReduceContract<PactInteger, CoordinatesSum, PactNull, PactPoint>(
 				RecomputeClusterCenter.class, "Compute the new centers");
-		reducer.setDegreeOfParallelism(noSubTasks);
 
 		FileDataSinkContract<PactNull, PactPoint> out = new FileDataSinkContract<PactNull, PactPoint>(
 				PactPoint.LineOutFormat.class, output, "Centers");
-
-		out.setDegreeOfParallelism(noSubTasks);
+		
+		if(args.length > 3)
+		{
+			MapSubTasks   = Integer.parseInt(args[3]);
+			ReduceSubTasks   = Integer.parseInt(args[4]);
+			InSubTasks   = Integer.parseInt(args[5]);
+			OutSubTasks   = Integer.parseInt(args[6]);
+			data.setDegreeOfParallelism(InSubTasks);
+			mapper.setDegreeOfParallelism(MapSubTasks);
+			reducer.setDegreeOfParallelism(ReduceSubTasks);
+			out.setDegreeOfParallelism(OutSubTasks);
+		}
 
 		out.setInput(reducer);
 		reducer.setInput(mapper);

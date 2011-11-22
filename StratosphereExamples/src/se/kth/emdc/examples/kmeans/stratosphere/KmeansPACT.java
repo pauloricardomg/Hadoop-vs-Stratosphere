@@ -232,16 +232,20 @@ public class KmeansPACT implements PlanAssembler, PlanAssemblerDescription {
 	public Plan getPlan(String... args) {
 
 		// parse job parameters
-		int noSubTasks = (args.length > 0 ? Integer.parseInt(args[0]) : 1);
-		String dataPointInput = (args.length > 1 ? args[1] : "");
-		String clusterInput = (args.length > 2 ? args[2] : "");
-		String output = (args.length > 3 ? args[3] : "");
+		String dataPointInput = (args.length > 0 ? args[0] : "");
+		String clusterInput = (args.length > 1 ? args[1] : "");
+		String output = (args.length > 2 ? args[2] : "");
+		int crossTasks   = 0;
+		int reduce1Tasks   = 0;
+		int reduce2Tasks = 0;
+		int InSubTasks   = 0;
+		int OutSubTasks   = 0;
 
 		// create DataSourceContract for data point input
 		FileDataSourceContract<PactPoint, PactNull> dataPoints = new FileDataSourceContract<PactPoint, PactNull> (
 				PactPoint.LineInFormat.class, dataPointInput, "Data Points");
 		dataPoints.setParameter(PactPoint.LineInFormat.RECORD_DELIMITER, "\n");
-		dataPoints.setDegreeOfParallelism(noSubTasks);
+		
 		//dataPoints.setOutputContract(UniqueKey.class);
 
 		// create DataSourceContract for cluster center input
@@ -254,26 +258,42 @@ public class KmeansPACT implements PlanAssembler, PlanAssemblerDescription {
 		// create CrossContract for distance computation
 		CrossContract<PactPoint, PactNull, PactPoint, PactNull, PactPoint, Distance> computeDistance = new CrossContract<PactPoint, PactNull, PactPoint, PactNull, PactPoint, Distance>(
 				ComputeDistance.class, "Compute Distances");
-		computeDistance.setDegreeOfParallelism(noSubTasks);
+		
 		//?computeDistance.getCompilerHints().setAvgBytesPerRecord(48);
 
 		// create ReduceContract for finding the nearest cluster centers
 		ReduceContract<PactPoint, Distance, PactInteger, CoordinatesSum> findNearestClusterCenters = new ReduceContract<PactPoint, Distance, PactInteger, CoordinatesSum>(
 				FindNearestCenter.class, "Find Nearest Centers");
-		findNearestClusterCenters.setDegreeOfParallelism(noSubTasks);
+		
 		//findNearestClusterCenters.getCompilerHints().setAvgBytesPerRecord(48);
 
 		// create ReduceContract for computing new cluster positions
 		ReduceContract<PactInteger, CoordinatesSum, PactNull, PactPoint> recomputeClusterCenter = new ReduceContract<PactInteger, CoordinatesSum, PactNull, PactPoint>(
 				KmeansMR.RecomputeClusterCenter.class, "Recompute Center Positions");
-		recomputeClusterCenter.setDegreeOfParallelism(noSubTasks);
+		
 		//recomputeClusterCenter.getCompilerHints().setAvgBytesPerRecord(36);
 
 		// create DataSinkContract for writing the new cluster positions
 		FileDataSinkContract<PactNull, PactPoint> newClusterPoints = new FileDataSinkContract<PactNull, PactPoint>(
 				PactPoint.LineOutFormat.class, output, "New Centers");
-		newClusterPoints.setDegreeOfParallelism(noSubTasks);
+		
 
+		if(args.length > 3)
+		{
+			crossTasks   = Integer.parseInt(args[3]);
+			reduce1Tasks   = Integer.parseInt(args[4]);
+			reduce2Tasks = Integer.parseInt(args[5]);
+			InSubTasks   = Integer.parseInt(args[6]);
+			OutSubTasks   = Integer.parseInt(args[7]);
+			dataPoints.setDegreeOfParallelism(InSubTasks);
+			computeDistance.setDegreeOfParallelism(crossTasks);
+			findNearestClusterCenters.setDegreeOfParallelism(reduce1Tasks);
+			recomputeClusterCenter.setDegreeOfParallelism(reduce2Tasks);
+			newClusterPoints.setDegreeOfParallelism(OutSubTasks);
+		}
+		
+		
+		
 		// assemble the PACT plan
 		newClusterPoints.setInput(recomputeClusterCenter);
 		recomputeClusterCenter.setInput(findNearestClusterCenters);
