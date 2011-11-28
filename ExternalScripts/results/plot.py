@@ -13,14 +13,22 @@ plottypes={"cloud2":"ro-","cloud3":"gx-","cloud4":"b^-","cloud5":"ch-","cloud6":
 def main():
     #problem = raw_input("enter problem (kmeans, wordcount, etc.): ")
     
-    #plot_times_input_sizes("wordcount")
-    #plot_times_input_sizes("kmeans")
+    plot_times_input_sizes("wordcount")
+    plot_times_input_sizes("kmeans")
+    """
     plot_x_times_for_all_nodes("cpu","wordcount","hadoop-mr")
     plot_x_times_for_all_nodes("cpu","wordcount","stratosphere-mr")
     plot_x_times_for_all_nodes("mem","wordcount","hadoop-mr")
     plot_x_times_for_all_nodes("mem","wordcount","stratosphere-mr")
     plot_x_times_for_all_nodes("procs","wordcount","hadoop-mr")
     plot_x_times_for_all_nodes("procs","wordcount","stratosphere-mr")
+    """
+    plot_x_times_for_all_nodes("cpu","kmeans","hadoop-mr")
+    plot_x_times_for_all_nodes("cpu","kmeans","stratosphere-mr")
+    plot_x_times_for_all_nodes("mem","kmeans","hadoop-mr")
+    plot_x_times_for_all_nodes("mem","kmeans","stratosphere-mr")
+    plot_x_times_for_all_nodes("proc","kmeans","hadoop-mr")
+    plot_x_times_for_all_nodes("proc","kmeans","stratosphere-mr")
 
 def plot_times_input_sizes(problem):
     root=os.getcwd()
@@ -69,17 +77,32 @@ def plot_x_times_for_all_nodes(x,problem,framework):
     fig = plt.figure()
     ax=fig.add_subplot(111)
     i=0
+    ylabel=x
+    title=x
     for node in plottypes.keys():
 	plottype=plottypes[node]
-	xs,times=get_x_time_for_node(x,node,framework,1,"1536")	
+	xs,times=get_x_time_for_node(x,node,framework,1,"1536")
+	
+	#Tune title and label
+	if x=="cpu":
+	    xs=map(lambda a:float(a)/1200.0,xs)
+	    ylabel="CPU (%)"
+	    title="CPU utilization"
+	elif x=="mem":
+	    ylabel="Memory (%)"
+	    title="Memory utilization"
+	elif x=="procs" or x=="proc":
+	    ylabel="Number of Processes"
+	    title="Number of processes"
+	
 	plt.plot(times,xs,plottype)
-	plt.figtext(0.80, 0.80-0.03*i, node, backgroundcolor=plottype[0],
+	plt.figtext(0.80, 0.60+0.03*i, node, backgroundcolor=plottype[0],
                 color='white', weight='roman', size='small')
 	i+=1
     ax.set_xlabel('Time (seconds)')
-    ax.set_ylabel(x)
+    ax.set_ylabel(ylabel)
     plt.grid(True)
-    plt.title(x+' of all nodes for '+problem+' in ' + framework)
+    plt.title(title+' of all nodes\n('+problem.lower()+', ' + framework.lower()+')')
     plt.show()
     os.chdir(root)
     
