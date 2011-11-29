@@ -7,7 +7,7 @@ STRATOSPHERE_DIR=/home/paulo/emdc/stratosphere/stratosphere-0.1.1/
 
 ### K-means parameters
 #Jar file
-KMEANS_JAR=/home/paulo/Desktop/StratKmeansMR.jar
+KMEANS_JAR=/home/paulo/workspace/HadoopVsStratosphere/ExternalScripts/kmeans/lib/StratKmeansMR.jar
 
 # Points file (input)
 POINTS_FILE=/home/paulo/workspace/HadoopVsStratosphere/ExternalScripts/kmeans/points
@@ -43,7 +43,7 @@ while [ $? -eq 1 ]; do
 	START=$SECONDS
 	
 	# Run 1 iteration of map reduce
-	$STRATOSPHERE_DIR/bin/pact-client.sh run -v -w -j $KMEANS_JAR -a 1 file://$POINTS_FILE $NEXT file://$TMP_OUTPUT     
+	$STRATOSPHERE_DIR/bin/pact-client.sh run -v -w -j $KMEANS_JAR -a file://$POINTS_FILE $NEXT file://$TMP_OUTPUT     
 	
 	# Calculate elapsed time
 	ELAPSED=`expr $SECONDS - $START`

@@ -5,15 +5,12 @@
 # Stratosphere installation path
 STRATOSPHERE_DIR=/home/paulo/emdc/stratosphere/stratosphere-0.1.1/
 
-# Stratosphere Examples project path
-PROJ_DIR=/home/paulo/workspace/HadoopVsStratosphere/StratosphereExamples
-
-JAR_DIR=$PROJ_DIR/examples/kmeans/pact/example.jar
-
 ### K-means parameters
+#Jar file
+KMEANS_JAR=/home/paulo/workspace/HadoopVsStratosphere/ExternalScripts/kmeans/lib/StratKmeansPACT.jar
 
 # Points file (input)
-POINTS_FILE=/home/paulo/workspace/HadoopVsStratosphere/StratosphereExamples/examples/kmeans/pact/points.txt
+POINTS_FILE=/home/paulo/workspace/HadoopVsStratosphere/ExternalScripts/kmeans/points
 
 # Centers file (output)
 FINAL_OUTPUT=centers.txt
@@ -21,7 +18,7 @@ FINAL_OUTPUT=centers.txt
 # Gnu plot output (optional)
 GRAPH_OUTPUT=result.plt
 
-NUM_CLUSTERS=4
+NUM_CLUSTERS=50
 
 ### Advanced config
 
@@ -35,6 +32,7 @@ OUTPUT_PREFIX="*"
 touch $PREV
 # Create next centers file (first N points (sorted))
 shuf --random-source=$0 -n $NUM_CLUSTERS $POINTS_FILE | sort -n -k 1 $INITIAL_CENTERS > $NEXT
+#cat $NEXT
 
 TOTAL_TIME=0
 ITERATION=0
@@ -45,7 +43,7 @@ while [ $? -eq 1 ]; do
 	START=$SECONDS
 	
 	# Run 1 iteration of map reduce
-	$STRATOSPHERE_DIR/bin/pact-client.sh run -w -j $JAR_DIR -a 4 file://$POINTS_FILE file://`pwd`"/"$NEXT file://$TMP_OUTPUT
+	$STRATOSPHERE_DIR/bin/pact-client.sh run -v -w -j $KMEANS_JAR -a file://$POINTS_FILE file://$NEXT file://$TMP_OUTPUT 3 3 3 3 3 3 
 	
 	# Calculate elapsed time
 	ELAPSED=`expr $SECONDS - $START`
@@ -54,23 +52,16 @@ while [ $? -eq 1 ]; do
 	# Next centers become previous centers
 	mv $NEXT $PREV
 
-	for file in `ls output/$OUTPUT_PREFIX`
-	do
-		while read line
-		do
-			echo $line | awk '{print $1"\t"$2"\t"$3}' >> $TMP
-		done < $file
-	done
+	cat $TMP_OUTPUT > $TMP
 
 	# Sort next centers
 	sort -n -k 1 $TMP > $NEXT
-	rm -rf $TMP_OUTPUT $TMP
+	#rm -rf $TMP_OUTPUT $TMP
+	rm -rf $TMP
+	mv $TMP_OUTPUT $TMP_OUTPUT"-"$ITERATION
 
-	#rm -rf $TMP
-	#mv $TMP_OUTPUT $TMP_OUTPUT"-"$ITERATION
-
-	#echo "Next centers:"
-	#cat next.txt
+	echo "Next centers:"
+	cat $NEXT
 
 	ITERATION=`expr $ITERATION + 1`
 
@@ -84,8 +75,8 @@ mv $NEXT $FINAL_OUTPUT
 echo "Kmeans has converged. Cluster centers are in file "$FINAL_OUTPUT" and gnuplot file is "$GRAPH_OUTPUT 
 
 echo "Generating graph.."
-echo "plot \"$POINTS_FILE\" using 2:3 title \"Points\", \\" > $GRAPH_OUTPUT
-echo "\"$FINAL_OUTPUT\" using 2:3 title \"Clusters\" " >> $GRAPH_OUTPUT
+echo "plot \"$POINTS_FILE\" using 1:2 title \"Points\", \\" > $GRAPH_OUTPUT
+echo "\"$FINAL_OUTPUT\" using 1:2 title \"Clusters\" " >> $GRAPH_OUTPUT
 gnuplot $GRAPH_OUTPUT -persist
 
 echo "Iterations: "$ITERATION

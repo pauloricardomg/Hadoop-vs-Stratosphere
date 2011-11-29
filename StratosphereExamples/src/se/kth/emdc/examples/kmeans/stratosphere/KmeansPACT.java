@@ -56,7 +56,7 @@ public class KmeansPACT implements PlanAssembler, PlanAssemblerDescription {
 
 	public static class Distance implements Value {
 
-		PactPoint clusterCenter;
+		PactInteger clusterId;
 		PactDouble distance;
 
 		/**
@@ -75,8 +75,8 @@ public class KmeansPACT implements PlanAssembler, PlanAssemblerDescription {
 		 * @param distance
 		 *        The distance from the data point to the cluster center.
 		 */
-		public Distance(PactPoint clusterCenter, PactDouble distance) {
-			this.clusterCenter = clusterCenter;
+		public Distance(PactInteger clusterId, PactDouble distance) {
+			this.clusterId = clusterId;
 			this.distance = distance;
 		}
 
@@ -85,8 +85,8 @@ public class KmeansPACT implements PlanAssembler, PlanAssemblerDescription {
 		 * 
 		 * @return The coordinate vector of the data point.
 		 */
-		public PactPoint getClusterCenter() {
-			return clusterCenter;
+		public PactInteger getClusterId() {
+			return clusterId;
 		}
 
 		/**
@@ -103,8 +103,8 @@ public class KmeansPACT implements PlanAssembler, PlanAssemblerDescription {
 		 */
 		@Override
 		public void read(DataInput in) throws IOException {
-			clusterCenter = new PactPoint();
-			clusterCenter.read(in);
+			clusterId = new PactInteger();
+			clusterId.read(in);
 			distance = new PactDouble();
 			distance.read(in);
 		}
@@ -114,7 +114,7 @@ public class KmeansPACT implements PlanAssembler, PlanAssemblerDescription {
 		 */
 		@Override
 		public void write(DataOutput out) throws IOException {
-			clusterCenter.write(out);
+			clusterId.write(out);
 			distance.write(out);
 		}
 
@@ -140,7 +140,7 @@ public class KmeansPACT implements PlanAssembler, PlanAssemblerDescription {
 		public void cross(PactPoint dataPoint, PactNull nullValue, PactPoint center, PactNull nullVal2, Collector<PactPoint, Distance> out) {
 
 			// compute Euclidian distance and create Distance object
-			Distance distance = new Distance(center, new PactDouble(dataPoint.euclidianDistanceTo(center)));
+			Distance distance = new Distance(new PactInteger(center.hashCode()), new PactDouble(dataPoint.euclidianDistanceTo(center)));
 
 			// emit key-value-pair with distance information
 			out.collect(dataPoint, distance);
@@ -190,7 +190,7 @@ public class KmeansPACT implements PlanAssembler, PlanAssemblerDescription {
 			// the coordinate vector of the data point is the value. The
 			// CoordVectorCountSum data type is used to enable the use of a
 			// Combiner for the second Reduce PACT.
-			out.collect(new PactInteger(nearestCluster.getClusterCenter().hashCode()), new CoordinatesSum(dataPoint.getCoords()));
+			out.collect(nearestCluster.getClusterId(), new CoordinatesSum(dataPoint.getCoords()));
 		}
 
 		/**
@@ -239,21 +239,20 @@ public class KmeansPACT implements PlanAssembler, PlanAssemblerDescription {
 		int reduce1Tasks   = 0;
 		int reduce2Tasks = 0;
 		int InSubTasks   = 0;
-		int OutSubTasks   = 0;
+		int outSubTasks   = 0;
 
 		// create DataSourceContract for data point input
 		FileDataSourceContract<PactPoint, PactNull> dataPoints = new FileDataSourceContract<PactPoint, PactNull> (
 				PactPoint.LineInFormat.class, dataPointInput, "Data Points");
 		dataPoints.setParameter(PactPoint.LineInFormat.RECORD_DELIMITER, "\n");
-		
-		//dataPoints.setOutputContract(UniqueKey.class);
+		dataPoints.setOutputContract(UniqueKey.class);
 
 		// create DataSourceContract for cluster center input
 		FileDataSourceContract<PactPoint, PactNull> clusterPoints = new FileDataSourceContract<PactPoint, PactNull> (
 				PactPoint.LineInFormat.class, clusterInput, "Centers");
 		clusterPoints.setParameter(PactPoint.LineInFormat.RECORD_DELIMITER, "\n");
 		clusterPoints.setDegreeOfParallelism(1);
-		//clusterPoints.setOutputContract(UniqueKey.class);
+		clusterPoints.setOutputContract(UniqueKey.class);
 
 		// create CrossContract for distance computation
 		CrossContract<PactPoint, PactNull, PactPoint, PactNull, PactPoint, Distance> computeDistance = new CrossContract<PactPoint, PactNull, PactPoint, PactNull, PactPoint, Distance>(
@@ -280,19 +279,18 @@ public class KmeansPACT implements PlanAssembler, PlanAssemblerDescription {
 
 		if(args.length > 3)
 		{
-			crossTasks   = Integer.parseInt(args[3]);
-			reduce1Tasks   = Integer.parseInt(args[4]);
-			reduce2Tasks = Integer.parseInt(args[5]);
-			InSubTasks   = Integer.parseInt(args[6]);
-			OutSubTasks   = Integer.parseInt(args[7]);
+			InSubTasks   = Integer.parseInt(args[3]);
+			crossTasks   = Integer.parseInt(args[4]);
+			reduce1Tasks   = Integer.parseInt(args[5]);
+			reduce2Tasks = Integer.parseInt(args[6]);
+			outSubTasks   = Integer.parseInt(args[7]);
+			
 			dataPoints.setDegreeOfParallelism(InSubTasks);
 			computeDistance.setDegreeOfParallelism(crossTasks);
 			findNearestClusterCenters.setDegreeOfParallelism(reduce1Tasks);
 			recomputeClusterCenter.setDegreeOfParallelism(reduce2Tasks);
-			newClusterPoints.setDegreeOfParallelism(OutSubTasks);
+			newClusterPoints.setDegreeOfParallelism(outSubTasks);
 		}
-		
-		
 		
 		// assemble the PACT plan
 		newClusterPoints.setInput(recomputeClusterCenter);
@@ -308,7 +306,7 @@ public class KmeansPACT implements PlanAssembler, PlanAssemblerDescription {
 
 	@Override
 	public String getDescription() {
-		return "Parameters: [noSubStasks] [dataPoints] [clusterCenters] [output]";
+		return "Parameters: [noSubStasks] [dataPoints] [clusterCenters] [output] [inSubTasks] [crossTasks] [reduce1Tasks] [reduce2Tasks] [outSubTasks]";
 	}
 
 }
