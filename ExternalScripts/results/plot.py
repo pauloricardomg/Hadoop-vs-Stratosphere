@@ -35,18 +35,22 @@ def main():
     
     plot_times_input_sizes("wordcount")
     plot_times_input_sizes("kmeans")
-    plot_x_times_for_all_nodes("cpu","wordcount","hadoop-mr")
-    plot_x_times_for_all_nodes("cpu","wordcount","stratosphere-mr")
-    plot_x_times_for_all_nodes("mem","wordcount","hadoop-mr")
-    plot_x_times_for_all_nodes("mem","wordcount","stratosphere-mr")
-    plot_x_times_for_all_nodes("procs","wordcount","hadoop-mr")
-    plot_x_times_for_all_nodes("procs","wordcount","stratosphere-mr")
-    plot_x_times_for_all_nodes("cpu","kmeans","hadoop-mr")
-    plot_x_times_for_all_nodes("cpu","kmeans","stratosphere-mr")
-    plot_x_times_for_all_nodes("mem","kmeans","hadoop-mr")
-    plot_x_times_for_all_nodes("mem","kmeans","stratosphere-mr")
-    plot_x_times_for_all_nodes("proc","kmeans","hadoop-mr")
-    plot_x_times_for_all_nodes("proc","kmeans","stratosphere-mr")
+    period=1
+    inputSize='1536'
+    plot_x_times_for_all_nodes("cpu","wordcount","hadoop-mr",period,inputSize)
+    plot_x_times_for_all_nodes("cpu","wordcount","stratosphere-mr",period,inputSize)
+    plot_x_times_for_all_nodes("mem","wordcount","hadoop-mr",period,inputSize)
+    plot_x_times_for_all_nodes("mem","wordcount","stratosphere-mr",period,inputSize)
+    plot_x_times_for_all_nodes("procs","wordcount","hadoop-mr",period,inputSize)
+    plot_x_times_for_all_nodes("procs","wordcount","stratosphere-mr",period,inputSize)
+    period=2
+    inputSize='1536'
+    plot_x_times_for_all_nodes("cpu","kmeans","hadoop-mr",period,inputSize)
+    plot_x_times_for_all_nodes("cpu","kmeans","stratosphere-mr",period,inputSize)
+    plot_x_times_for_all_nodes("mem","kmeans","hadoop-mr",period,inputSize)
+    plot_x_times_for_all_nodes("mem","kmeans","stratosphere-mr",period,inputSize)
+    plot_x_times_for_all_nodes("proc","kmeans","hadoop-mr",period,inputSize)
+    plot_x_times_for_all_nodes("proc","kmeans","stratosphere-mr",period,inputSize)
 
 def plot_times_input_sizes(problem):
     root=os.getcwd()
@@ -88,7 +92,9 @@ def get_times_input_sizes(framework):
     os.chdir(problem_dir)
     return sizes,times
 
-def plot_x_times_for_all_nodes(x,problem,framework):
+#framework, node, input_size must be string
+#period is the sampling period, and is an int
+def plot_x_times_for_all_nodes(x,problem,framework,period,inputSize):
     root=os.getcwd()
     os.chdir(problem)
     
@@ -99,7 +105,7 @@ def plot_x_times_for_all_nodes(x,problem,framework):
     title=x
     for node in plottypes.keys():
 	plottype=plottypes[node]
-	xs,times=get_x_time_for_node(x,node,framework,1,"1536")
+	xs,times=get_x_time_for_node(x,node,framework,period,inputSize)
 	
 	#Tune title and label
 	if x=="cpu":
