@@ -1,3 +1,21 @@
+"""
+Notes:
+1.
+For now, this module must be placed in the same folder where all the other problem folders are placed
+i.e., doing an "ls" in the folder where this module resides will results in:
+plot.py
+wordcount
+kmeans
+
+2.
+This module assumes the following structure of each problem folder:
+a. each problem folder includes the following folders: hadoop-mr, stratosphere-mr, stratosphere-pact
+   and these folders are results from cloud1
+b. in addition, each problem folder contains folders: cloud2, cloud3,... cloud7
+   and each of these folders contains three folders: hadoop-mr, stratosphere-mr, stratosphere-pact
+   which are results from corresponding machines
+"""
+
 import matplotlib
 matplotlib.use('Agg')
 import matplotlib.pyplot as plt
