@@ -1,3 +1,5 @@
+import matplotlib
+matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 import matplotlib.transforms as mtransforms
 import numpy as np
@@ -15,14 +17,12 @@ def main():
     
     plot_times_input_sizes("wordcount")
     plot_times_input_sizes("kmeans")
-    """
     plot_x_times_for_all_nodes("cpu","wordcount","hadoop-mr")
     plot_x_times_for_all_nodes("cpu","wordcount","stratosphere-mr")
     plot_x_times_for_all_nodes("mem","wordcount","hadoop-mr")
     plot_x_times_for_all_nodes("mem","wordcount","stratosphere-mr")
     plot_x_times_for_all_nodes("procs","wordcount","hadoop-mr")
     plot_x_times_for_all_nodes("procs","wordcount","stratosphere-mr")
-    """
     plot_x_times_for_all_nodes("cpu","kmeans","hadoop-mr")
     plot_x_times_for_all_nodes("cpu","kmeans","stratosphere-mr")
     plot_x_times_for_all_nodes("mem","kmeans","hadoop-mr")
@@ -42,13 +42,13 @@ def plot_times_input_sizes(problem):
     plt.plot(strat_sizes, strat_times, 'bo-')
     ax.set_xlabel('Size of Input (MB)')
     ax.set_ylabel('Time (seconds)')
-    plt.figtext(0.80, 0.80, 'Stratosphere', backgroundcolor="blue",
+    plt.figtext(0.70, 0.70, 'Stratosphere', backgroundcolor="blue",
                 color='white', weight='roman', size='small')
-    plt.figtext(0.80, 0.77, 'Hadoop', backgroundcolor="red",
+    plt.figtext(0.70, 0.65, 'Hadoop', backgroundcolor="red",
                 color='white', weight='roman', size='small')
     plt.grid(True)
-    plt.title('Running Time(Hadoop vs Stratosphere) for Word Count')
-    plt.show()
+    plt.title('Running Time for '+problem+'\n(Hadoop vs Stratosphere)')
+    plt.savefig('time-'+problem)
     os.chdir(root)
     
 def get_times_input_sizes(framework):
@@ -86,7 +86,7 @@ def plot_x_times_for_all_nodes(x,problem,framework):
 	#Tune title and label
 	if x=="cpu":
 	    xs=map(lambda a:float(a)/1200.0,xs)
-	    ylabel="CPU (%)"
+	    ylabel="CPU"
 	    title="CPU utilization"
 	elif x=="mem":
 	    ylabel="Memory (%)"
@@ -96,6 +96,15 @@ def plot_x_times_for_all_nodes(x,problem,framework):
 	    title="Number of processes"
 	
 	plt.plot(times,xs,plottype)
+	
+	#Tune y axis limits
+	if x=="cpu":
+	    plt.ylim((0,1))
+	elif x=="mem":
+	    plt.ylim((0,20))
+	elif x=="procs" or x=="proc":
+	    plt.ylim((0,6))
+	    
 	plt.figtext(0.80, 0.60+0.03*i, node, backgroundcolor=plottype[0],
                 color='white', weight='roman', size='small')
 	i+=1
@@ -103,7 +112,7 @@ def plot_x_times_for_all_nodes(x,problem,framework):
     ax.set_ylabel(ylabel)
     plt.grid(True)
     plt.title(title+' of all nodes\n('+problem.lower()+', ' + framework.lower()+')')
-    plt.show()
+    plt.savefig(x+'-'+problem.lower()+'-'+framework.lower())
     os.chdir(root)
     
 #framework, node, input_size must be string
