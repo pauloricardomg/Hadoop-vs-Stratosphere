@@ -165,7 +165,7 @@ public class KmeansPACT implements PlanAssembler, PlanAssemblerDescription {
 		 */
 		@Override
 		public void reduce(PactPoint dataPoint, Iterator<Distance> distancesList, Collector<PactInteger, CoordinatesSum> out) {
-
+			
 			// initialize nearest cluster with the first distance
 			Distance nearestCluster = null;
 			if (distancesList.hasNext()) {
@@ -190,7 +190,7 @@ public class KmeansPACT implements PlanAssembler, PlanAssemblerDescription {
 			// the coordinate vector of the data point is the value. The
 			// CoordVectorCountSum data type is used to enable the use of a
 			// Combiner for the second Reduce PACT.
-			out.collect(nearestCluster.getClusterId(), new CoordinatesSum(dataPoint.getCoords()));
+			out.collect(nearestCluster.getClusterId(), new CoordinatesSum(dataPoint.getCoords()));			
 		}
 
 		/**
@@ -244,13 +244,13 @@ public class KmeansPACT implements PlanAssembler, PlanAssemblerDescription {
 		// create DataSourceContract for data point input
 		FileDataSourceContract<PactPoint, PactNull> dataPoints = new FileDataSourceContract<PactPoint, PactNull> (
 				PactPoint.LineInFormat.class, dataPointInput, "Data Points");
-		dataPoints.setParameter(PactPoint.LineInFormat.RECORD_DELIMITER, "\n");
+		//dataPoints.setParameter(PactPoint.LineInFormat.RECORD_DELIMITER, "\n");
 		dataPoints.setOutputContract(UniqueKey.class);
 
 		// create DataSourceContract for cluster center input
 		FileDataSourceContract<PactPoint, PactNull> clusterPoints = new FileDataSourceContract<PactPoint, PactNull> (
 				PactPoint.LineInFormat.class, clusterInput, "Centers");
-		clusterPoints.setParameter(PactPoint.LineInFormat.RECORD_DELIMITER, "\n");
+		//clusterPoints.setParameter(PactPoint.LineInFormat.RECORD_DELIMITER, "\n");
 		clusterPoints.setDegreeOfParallelism(1);
 		clusterPoints.setOutputContract(UniqueKey.class);
 
@@ -258,7 +258,8 @@ public class KmeansPACT implements PlanAssembler, PlanAssemblerDescription {
 		CrossContract<PactPoint, PactNull, PactPoint, PactNull, PactPoint, Distance> computeDistance = new CrossContract<PactPoint, PactNull, PactPoint, PactNull, PactPoint, Distance>(
 				ComputeDistance.class, "Compute Distances");
 		
-		//?computeDistance.getCompilerHints().setAvgBytesPerRecord(48);
+		computeDistance.getParameters().setString("LOCAL_STRATEGY","LOCAL_STRATEGY_NESTEDLOOP_STREAMED_OUTER_FIRST");		
+		//computeDistance.getCompilerHints().setAvgBytesPerRecord(48);
 
 		// create ReduceContract for finding the nearest cluster centers
 		ReduceContract<PactPoint, Distance, PactInteger, CoordinatesSum> findNearestClusterCenters = new ReduceContract<PactPoint, Distance, PactInteger, CoordinatesSum>(
@@ -274,8 +275,7 @@ public class KmeansPACT implements PlanAssembler, PlanAssemblerDescription {
 
 		// create DataSinkContract for writing the new cluster positions
 		FileDataSinkContract<PactNull, PactPoint> newClusterPoints = new FileDataSinkContract<PactNull, PactPoint>(
-				PactPoint.LineOutFormat.class, output, "New Centers");
-		
+				PactPoint.LineOutFormat.class, output, "New Centers");		
 
 		if(args.length > 3)
 		{
