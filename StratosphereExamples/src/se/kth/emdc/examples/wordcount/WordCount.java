@@ -123,6 +123,7 @@ public class WordCount implements PlanAssembler, PlanAssemblerDescription {
 		/**
 		 * {@inheritDoc}
 		 */
+		PactInteger result = new PactInteger();
 		@Override
 		public void reduce(PactString key, Iterator<PactInteger> values, Collector<PactString, PactInteger> out) {
 			int sum = 0;
@@ -130,8 +131,8 @@ public class WordCount implements PlanAssembler, PlanAssemblerDescription {
 				PactInteger element = (PactInteger) values.next();
 				sum += element.getValue();
 			}
-
-			out.collect(key, new PactInteger(sum));
+			result.setValue(sum);
+			out.collect(key, result);
 		}
 
 		/**

@@ -15,8 +15,6 @@ import org.apache.hadoop.util.GenericOptionsParser;
 
 
 public class OLAPQueryMRJob1 {
-	
-		enum Environment {KEYWORD, RANK};
 
 		public static class OLAPJoinMapper extends Mapper<Object, Text, Text, Text> {
 			/*
@@ -29,28 +27,35 @@ public class OLAPQueryMRJob1 {
 			Integer ranks_KeyPosition = 1;
 			String Delimiter = "\\|";
 			
-			String keyword;
-			Integer rank;
+			String[] keywords={ " editors ", " oscillations ", " convection " };
+			Integer rank=50;
 			
 			protected void setup(Context context)
 			{
-				Configuration conf = context.getConfiguration();
-				keyword = conf.get(Environment.KEYWORD.toString());
-				rank = Integer.parseInt(conf.get(Environment.RANK.toString()));
+			
 			}
 			
 			protected void map(Object key, Text value, Context context) throws IOException ,InterruptedException {
 				String[] items = value.toString().split(Delimiter);
 				if(items.length == 2) // it's a docs-tuple
 				{
-					if(items[1].contains(keyword)) // check whether content contains keyword
+					boolean ContainAllKeywords=true;
+					for(String keyword: keywords)
+					{
+						if(!items[1].contains(keyword)) // check whether content contains keyword
+						{
+							ContainAllKeywords=false;
+							
+						}
+					}
+					if(ContainAllKeywords)
 					{
 						context.write(new Text(items[docs_KeyPosition]), value);
 					}
 				}
 				else if(items.length == 3) // it's a ranks-tuple
 				{
-					if(Integer.parseInt(items[0]) < rank) // check whether the rank is bigger enough
+					if(Integer.parseInt(items[0]) > rank) // check whether the rank is bigger enough
 					{
 						context.write(new Text(items[ranks_KeyPosition]), value);
 					}
@@ -70,29 +75,24 @@ public class OLAPQueryMRJob1 {
 				boolean rank_tuple_found = false;
 				boolean doc_tuple_found = false;
 				
-				String[] rank_tuple = null;
-				String[] doc_tuple = null;
+				Text rank_tuple = null;
 				for(Text tuple : tuples)
 				{
 					if(tuple.toString().split(Delimiter).length == 3)
 					{
 						rank_tuple_found = true;
-						rank_tuple = tuple.toString().split(Delimiter);
+						rank_tuple = new Text(tuple);
 					}
 					else if(tuple.toString().split(Delimiter).length == 2)
 					{
 						doc_tuple_found = true;
-						doc_tuple = tuple.toString().split(Delimiter);
 					}
 				}
 				
 				if(rank_tuple_found && doc_tuple_found)
-				{
-					String new_tuple = doc_tuple[0]+"|"+doc_tuple[1]+"|"+rank_tuple[0]+"|"+rank_tuple[2]+"|";
-					
-					//form a new tuple from a rank tuple and a doc tuple
-					// URL|Content|Rank|AverageDuration|
-					context.write(NullWritable.get(), new Text(new_tuple));
+				{					
+					//emit the rank tuple
+					context.write(NullWritable.get(), rank_tuple);
 				}
 			}
 		}
@@ -104,14 +104,12 @@ public class OLAPQueryMRJob1 {
 			Configuration conf = new Configuration();
 			String[] otherArgs = new GenericOptionsParser(conf, args).getRemainingArgs();
 			
-			if (otherArgs.length != 5) {
+			if (otherArgs.length != 3) {
 				System.err.println("Usage: " + OLAPQueryMRJob1.class.getName() + 
-								   "<docs_file> <ranks_file> <keyword> <rank> <outputFolderPath>");
+								   "<docs_file> <ranks_file> <outputFolderPath>");
 				
 				System.err.println("<docs_file>: the path to the \"docs\" file in HDFS");
 				System.err.println("<ranks_file>: the path to the \"ranks\" file in HDFS");
-				System.err.println("<keyword>: the keyword to be searched");
-				System.err.println("<rank>: the minimum rank of the urls");
 				System.err.println("<outputFolderPath>: output folder in HDFS, must be empty before running the job");
 				System.exit(2);
 			}
@@ -125,9 +123,7 @@ public class OLAPQueryMRJob1 {
 			
 			FileInputFormat.addInputPath(job, new Path(otherArgs[0]));
 			FileInputFormat.addInputPath(job, new Path(otherArgs[1]));
-			job.getConfiguration().set(Environment.KEYWORD.toString(), otherArgs[2]);
-			job.getConfiguration().set(Environment.RANK.toString(), otherArgs[3]);
-			FileOutputFormat.setOutputPath(job, new Path(otherArgs[4]));
+			FileOutputFormat.setOutputPath(job, new Path(otherArgs[2]));
 			System.exit(job.waitForCompletion(true) ? 0 : 1);
 		}
 }

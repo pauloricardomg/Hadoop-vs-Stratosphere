@@ -31,8 +31,8 @@ nodes=["cloud2","cloud3","cloud4","cloud5","cloud6","cloud7"]
 plottypes={"cloud2":"ro-","cloud3":"gx-","cloud4":"b^-","cloud5":"ch-","cloud6":"mH-","cloud7":"y+-"}
 
 def main():
-    #problem = raw_input("enter problem (kmeans, wordcount, etc.): ")
-    
+    results_folder = raw_input("enter results_folder: ")
+    os.chdir(results_folder)
     plot_times_input_sizes("wordcount")
     plot_times_input_sizes("kmeans")
     period=1
