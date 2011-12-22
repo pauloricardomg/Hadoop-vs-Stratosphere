@@ -1,4 +1,4 @@
-package se.kth.emdc.mapreduce.match;
+package se.kth.emdc.mapreduce.cogroup;
 
 import java.util.Iterator;
 
@@ -17,7 +17,7 @@ import eu.stratosphere.pact.example.relational.util.DocsRanksDataInFormat;
 import eu.stratosphere.pact.example.relational.util.StringTupleDataOutFormat;
 import eu.stratosphere.pact.example.relational.util.Tuple;
 
-public class MatchMR implements PlanAssembler, PlanAssemblerDescription {
+public class CoGroupMR implements PlanAssembler, PlanAssemblerDescription {
 
 	public static class IdentityMapper extends MapStub<PactString, Tuple, PactString, Tuple>
 	{
@@ -38,38 +38,6 @@ public class MatchMR implements PlanAssembler, PlanAssemblerDescription {
 			}			
 		}
 	}
-
-	public static class JoinReducer extends ReduceStub<PactString, Tuple, PactString, Tuple> {
-			
-			@Override
-			public void reduce(PactString key, Iterator<Tuple> tuples,
-					Collector<PactString, Tuple> out) {
-				boolean rank_tuple_found = false;
-				boolean doc_tuple_found = false;
-
-				Tuple rank_tuple = null;
-				while(tuples.hasNext())
-				{
-					Tuple tuple=tuples.next();
-					if(tuple.getNumberOfColumns() == 3)
-					{
-						rank_tuple_found = true;
-						rank_tuple = tuple;
-					}
-					else if(tuple.getNumberOfColumns() == 2)
-					{
-						doc_tuple_found = true;
-					}
-				}
-
-				if(rank_tuple_found && doc_tuple_found)
-				{					
-					//emit the rank tuple
-					out.collect(key, rank_tuple);
-				}
-				
-			}
-		}
 
 		@Override
 		public String getDescription() {
@@ -98,7 +66,7 @@ public class MatchMR implements PlanAssembler, PlanAssemblerDescription {
 			
 
 			ReduceContract<PactString, Tuple, PactString, Tuple> reducer = new ReduceContract<PactString, Tuple, PactString, Tuple>(
-					IdentityReducer.class, "Reducer Joining on the URL Key");
+					IdentityReducer.class, "Identity Reducer Outputing CoGrouped Key/Value Pairs");
 			
 
 			FileDataSinkContract<PactString, Tuple> out = new FileDataSinkContract<PactString, Tuple>(

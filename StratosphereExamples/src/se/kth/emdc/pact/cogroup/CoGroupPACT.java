@@ -1,33 +1,38 @@
-package se.kth.emdc.pact.match;
+package se.kth.emdc.pact.cogroup;
 
+import java.util.Iterator;
+
+import eu.stratosphere.pact.common.contract.CoGroupContract;
 import eu.stratosphere.pact.common.contract.FileDataSinkContract;
 import eu.stratosphere.pact.common.contract.FileDataSourceContract;
-import eu.stratosphere.pact.common.contract.MatchContract;
 import eu.stratosphere.pact.common.io.TextInputFormat;
 import eu.stratosphere.pact.common.plan.Plan;
 import eu.stratosphere.pact.common.plan.PlanAssembler;
 import eu.stratosphere.pact.common.plan.PlanAssemblerDescription;
+import eu.stratosphere.pact.common.stub.CoGroupStub;
 import eu.stratosphere.pact.common.stub.Collector;
-import eu.stratosphere.pact.common.stub.MatchStub;
 import eu.stratosphere.pact.common.type.base.PactString;
 import eu.stratosphere.pact.example.relational.util.DocsRanksDataInFormat;
 import eu.stratosphere.pact.example.relational.util.StringTupleDataOutFormat;
 import eu.stratosphere.pact.example.relational.util.Tuple;
 
 
-public class MatchPACT implements PlanAssembler, PlanAssemblerDescription {
+public class CoGroupPACT implements PlanAssembler, PlanAssemblerDescription {
 
-	public static class JoinDocRanks extends MatchStub<PactString, Tuple, Tuple, PactString, Tuple> {
 
-		/**
-		 * Collects all entries from the documents and ranks relation where the
-		 * key (URL) is identical. The output consists of the old key (URL) and
-		 * the attributes of the ranks relation.
-		 */
-		public void match(PactString url, Tuple ranks, Tuple docs, Collector<PactString, Tuple> out) {
-			
-			// emit the key and the rank value
-			out.collect(url, ranks);
+	public static class CoGroupDocRanks extends CoGroupStub<PactString, Tuple, Tuple, PactString, Tuple> {
+
+		@Override
+		public void coGroup(PactString url, Iterator<Tuple> ranks,
+				Iterator<Tuple> docs, Collector<PactString, Tuple> out) {
+			while(ranks.hasNext())
+			{
+				out.collect(url, ranks.next());
+			}
+			while(docs.hasNext())
+			{
+				out.collect(url, docs.next());
+			}
 		}
 	}
 
@@ -43,7 +48,7 @@ public class MatchPACT implements PlanAssembler, PlanAssemblerDescription {
 		String output      = (args.length > 2 ? args[2] : "");
 		int docsDegreeParallelism = (args.length > 3 ? Integer.parseInt(args[3]) : 0);
 		int ranksDegreeParallelism = (args.length > 4 ? Integer.parseInt(args[4]) : 0);
-		int matchDegreeParallelism = (args.length > 5 ? Integer.parseInt(args[5]) : 0);
+		int coGroupDegreeParallelism = (args.length > 5 ? Integer.parseInt(args[5]) : 0);
 		int outDegreeParallelism = (args.length > 6 ? Integer.parseInt(args[6]) : 0);
 
 		// Create DataSourceContract for documents relation
@@ -67,12 +72,12 @@ public class MatchPACT implements PlanAssembler, PlanAssemblerDescription {
 
 		// Create MatchContract to join the filtered documents and ranks
 		// relation
-		MatchContract<PactString, Tuple, Tuple, PactString, Tuple> joinDocsRanks = new MatchContract<PactString, Tuple, Tuple, PactString, Tuple>(
-				JoinDocRanks.class, "Join DocRanks");
-		if(matchDegreeParallelism != 0)
-			joinDocsRanks.setDegreeOfParallelism(matchDegreeParallelism);
+		CoGroupContract<PactString, Tuple, Tuple, PactString, Tuple> coGroupDocsRanks = new CoGroupContract<PactString, Tuple, Tuple, PactString, Tuple>(
+				CoGroupDocRanks.class, "Join DocRanks");
+		if(coGroupDegreeParallelism != 0)
+			coGroupDocsRanks.setDegreeOfParallelism(coGroupDegreeParallelism);
 		else
-			joinDocsRanks.setDegreeOfParallelism(1);
+			coGroupDocsRanks.setDegreeOfParallelism(1);
 		
 
 		// Create DataSinkContract for writing the result of the OLAP query
@@ -84,9 +89,9 @@ public class MatchPACT implements PlanAssembler, PlanAssemblerDescription {
 			result.setDegreeOfParallelism(1);
 
 		// Assemble plan
-		joinDocsRanks.setFirstInput(ranks);
-		joinDocsRanks.setSecondInput(docs);
-		result.setInput(joinDocsRanks);
+		coGroupDocsRanks.setFirstInput(ranks);
+		coGroupDocsRanks.setSecondInput(docs);
+		result.setInput(coGroupDocsRanks);
 
 		// Return the PACT plan
 		return new Plan(result, "Match in PACT");
@@ -97,7 +102,7 @@ public class MatchPACT implements PlanAssembler, PlanAssemblerDescription {
 	 */
 	@Override
 	public String getDescription() {
-		return "Parameters: [docPath] [rankPath] [outPath] [docParallelismDegree] [rankParallelismDegree] [matchParallelismDegree] [outParallelismDegree]";
+		return "Parameters: [docPath] [rankPath] [outPath] [docParallelismDegree] [rankParallelismDegree] [coGroupParallelismDegree] [outParallelismDegree]";
 	}
 
 }
