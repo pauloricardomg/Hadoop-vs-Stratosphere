@@ -56,7 +56,7 @@ public class MatchMR implements PlanAssembler, PlanAssemblerDescription {
 						rank_tuple_found = true;
 						rank_tuple = tuple;
 					}
-					else if(tuple.getNumberOfColumns() == 2)
+					else if(tuple.getNumberOfColumns() == 0)
 					{
 						doc_tuple_found = true;
 					}
@@ -98,7 +98,7 @@ public class MatchMR implements PlanAssembler, PlanAssemblerDescription {
 			
 
 			ReduceContract<PactString, Tuple, PactString, Tuple> reducer = new ReduceContract<PactString, Tuple, PactString, Tuple>(
-					IdentityReducer.class, "Reducer Joining on the URL Key");
+					JoinReducer.class, "Reducer Joining on the URL Key");
 			
 
 			FileDataSinkContract<PactString, Tuple> out = new FileDataSinkContract<PactString, Tuple>(
