@@ -27,11 +27,11 @@ public class CoGroupPACT implements PlanAssembler, PlanAssemblerDescription {
 				Iterator<Tuple> docs, Collector<PactString, Tuple> out) {
 			while(ranks.hasNext())
 			{
-				out.collect(url, ranks.next());
+				//out.collect(url, ranks.next());
 			}
 			while(docs.hasNext())
 			{
-				out.collect(url, docs.next());
+				//out.collect(url, docs.next());
 			}
 		}
 	}

@@ -27,7 +27,7 @@ public class MatchPACT implements PlanAssembler, PlanAssemblerDescription {
 		public void match(PactString url, Tuple ranks, Tuple docs, Collector<PactString, Tuple> out) {
 			
 			// emit the key and the rank value
-			out.collect(url, ranks);
+			// out.collect(url, ranks);
 		}
 	}
 

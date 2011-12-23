@@ -1,0 +1,3 @@
+Manifest-Version: 1.0
+Sealed: true
+Pact-Assembler-Class: se.kth.emdc.mapreduce.match.MatchR
