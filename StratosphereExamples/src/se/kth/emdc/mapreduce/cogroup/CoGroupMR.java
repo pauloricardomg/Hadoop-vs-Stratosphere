@@ -32,10 +32,7 @@ public class CoGroupMR implements PlanAssembler, PlanAssemblerDescription {
 		
 		@Override
 		public void reduce(PactString key, Iterator<Tuple> tuples, Collector<PactString, Tuple> out) {
-			while(tuples.hasNext())
-			{
-				//out.collect(key, tuples.next());
-			}			
+	
 		}
 	}
 

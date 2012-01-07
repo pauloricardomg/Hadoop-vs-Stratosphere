@@ -16,17 +16,6 @@ import eu.stratosphere.pact.example.relational.util.StringTupleDataOutFormat;
 import eu.stratosphere.pact.example.relational.util.Tuple;
 
 public class MatchR implements PlanAssembler, PlanAssemblerDescription {
-	
-	public static class IdentityReducer extends ReduceStub<PactString, Tuple, PactString, Tuple> {
-		
-		@Override
-		public void reduce(PactString key, Iterator<Tuple> tuples, Collector<PactString, Tuple> out) {
-			while(tuples.hasNext())
-			{
-				out.collect(key, tuples.next());
-			}			
-		}
-	}
 
 	public static class JoinReducer extends ReduceStub<PactString, Tuple, PactString, Tuple> {
 			

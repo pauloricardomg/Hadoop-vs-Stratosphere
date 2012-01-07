@@ -25,14 +25,6 @@ public class CoGroupPACT implements PlanAssembler, PlanAssemblerDescription {
 		@Override
 		public void coGroup(PactString url, Iterator<Tuple> ranks,
 				Iterator<Tuple> docs, Collector<PactString, Tuple> out) {
-			while(ranks.hasNext())
-			{
-				//out.collect(url, ranks.next());
-			}
-			while(docs.hasNext())
-			{
-				//out.collect(url, docs.next());
-			}
 		}
 	}
 
